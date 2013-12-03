@@ -18,9 +18,8 @@ class PluginParser:
         self.tempDir = tempfile.mkdtemp()
         self.progName = progname
         self.plugins = {}
-        
-        log.debug('Name:%s , Path:%s, Ext:%s'%(progname, pluginpath, packageextension))
-        
+        self.counter = 1
+             
         if not os.path.isdir(pluginpath):
             return
 
@@ -28,7 +27,6 @@ class PluginParser:
         counter = 0
         for root, dirs, files in os.walk(pluginpath):
             for filename in files:
-                print filename
                 if os.path.splitext(filename)[1] == packageextension:
                     try:
                         zf = zipfile.ZipFile(os.path.join(root,filename),'r')
@@ -49,40 +47,47 @@ class PluginParser:
                         plugin = self.AnalysePlugin(pluginFilePath)
                         if plugin != None:
                             name  = plugin['name']
-
                             if name in self.plugins:
-
                                 if plugin['version'] > self.plugins[name]['version']:
                                     del self.plugins[name]
                                 else:
                                     continue
-
                             self.plugins[name] = plugin
+                            
+        for plugin in self.plugins:
+            log.info('Loaded Plugin: %s'%plugin)
+            log.info('Path: %s'%self.plugins[plugin]['path'])
            
-                    
-        
+
     def AnalysePlugin(self,path):
-        log.info('Is Plugin Importable:%s'%path)
+        self.counter += 1
         checkOK = False
         modfolder = os.path.dirname(path)
+        
         if not modfolder in sys.path:
             sys.path.append(modfolder)
+        
+        #If available use only py files
+        if path[-1] == 'c':
+            if os.path.isfile(path[0:-1]):
+                return None
+            
         try:
-            mod = imp.load_source('x',path)
+            mod = imp.load_source(str(self.counter),path)
             checkOK = True
         except:
             pass
         
         try:
-            mod = imp.load_compiled('x',path)
+            mod = imp.load_compiled(str(self.counter),path)
             checkOK = True
         except:
             pass
-            
-            
-        log.info('result:%s'%path)
         
         if not checkOK:
+            return None
+        
+        if not hasattr(mod, 'Plugin'):
             return None
             
         try:
@@ -97,31 +102,22 @@ class PluginParser:
             log.warning('Plugin is not for me')
             return None
             
-        return {'name':name,'version':version,'description':description,'path':path}
+        return {'name':name,'version':version,'description':description,'path':path,'mod':mod}
+
             
     def LoadPlugin(self,name):
-        plugininfo = self.plugins[name]
-        path = plugininfo['path']
-        try:
-            mod = imp.load_source('x',path)
-        except:
-            pass
-        
-        try:
-            mod = imp.load_compiled('x',path)
-        except:
-            pass
-            
-        return mod
+        log.debug('Load Plugin for: %s'%(name))
+        plugininfo = self.plugins[name]            
+        return plugininfo['mod']
 
     def ListPlugins(self):
         return self.plugins
         
-    def LoadAll(self):
-        plugins = []
-        for name in self.plugins:
-            plugins.append(self.LoadPlugin(name))
-        return plugins
+    #~ def LoadAll(self):
+        #~ plugins = []
+        #~ for name in self.plugins:
+            #~ plugins.append(self.LoadPlugin(name))
+        #~ return plugins
 
     def __del__(self):
         try:

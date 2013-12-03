@@ -1,0 +1,37 @@
+[info]
+type=languagefile
+language=Deutsch
+
+[maingui]
+menu=Menü
+sync=Synchronisieren
+exit=Beenden
+genre=Kategorie
+
+[columns]
+name=Name
+genre=Kategorie
+feeds=Anzahl
+unread=Ungel.
+new=Neu
+favorites=Fav.
+url=Typ
+
+[sub_feed_add]
+button=Feed Hinzufügen
+message1=Bitte geben Sie die Feed URL ein:
+message2=Feed Addresse nicht korrekt:
+
+[sub_feed_del]
+button=Feed Löschen
+message1=Wollen Sie den Feed:
+message2=wirklich löschen?
+
+[sub_feed_name]
+button=Umbenennen
+message1=Bitte geben Sie den Feed namen ein für:
+
+[sub_feed_genre]
+button=Kategorie festlegen
+message1=Bitte geben Sie die Kategorie ein für:
+

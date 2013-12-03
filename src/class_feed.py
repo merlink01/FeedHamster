@@ -21,7 +21,6 @@ import traceback
 import tempfile
 import webbrowser
 import class_mimetypes
-import FilterHTML
 
 
 class Feed:
@@ -614,7 +613,6 @@ class Feed:
             self.tempfiles.append(tmp)
             
             if extension[0] == '.html':
-                #~ result = FilterHTML.filter_html(self.message_get_data(muuid), SPEC)
                 meta = self.message_get_meta(muuid)
                 data = self.message_get_data(muuid).encode(meta['encoding'])
                 tmp.write(data)

@@ -31,24 +31,20 @@ class FeedHamster(object):
     path = Working directory
     """
 
-    def __init__(self, workingdir, download_pulse=20, cleanup_pulse=1, maxthreads=5):
+    def __init__(self, workingdir, download_pulse=20, cleanup_pulse=120, maxthreads=5):
         self.log = logging.getLogger('feedhamster')
         self.offline_mode = False
         self.shutdown = False
         
         self.settings = {}
         self.settings['version'] = __version__
-        
         self.settings['workingdir'] = workingdir
         self.settings['tempdir'] = os.path.join(workingdir,'temp')
         self.settings['plugindir'] = os.path.abspath('plugins')
-        
         self.settings['maxthreads'] = maxthreads
         self.settings['download_timeout'] = 10
         self.settings['download_pulse'] = download_pulse
         self.settings['cleanup_pulse'] = cleanup_pulse
-        
-        self.settings['worker_timeout'] = 2
         
         self.log.info('FeedHamster is starting up...')
         for entry in self.settings:
@@ -116,7 +112,7 @@ class FeedHamster(object):
         while True:
             
             try:
-                self.worker_job = self.worker_queue.get(block=True,timeout=self.settings['worker_timeout'])
+                self.worker_job = self.worker_queue.get(block=True,timeout=0.2)
                 self.log.info('Got Job: %s'%self.worker_job.upper())
             except:
                 
@@ -173,7 +169,7 @@ class FeedHamster(object):
                     counter += 1
                     self.log.info("""Download: %2d Percent"""%self.worker_status)
                     
-                    if self.shutdown:
+                    if 'shutdown' in self.worker_queue.queue:
                         self.log.info('Ending Downloads for shutdown')
                         break
                     
@@ -207,7 +203,7 @@ class FeedHamster(object):
                     
                     self.log.info('Cleanup: %s'%feed.feed_id)
                     
-                    if self.shutdown:
+                    if 'shutdown' in self.worker_queue.queue:
                         self.log.info('Ending Cleanups for shutdown')
                         break
                     
@@ -294,7 +290,7 @@ class FeedHamster(object):
         path = os.path.join(self.settings['workingdir'], '%s.hdb' % uuid)
         os.remove(path)
 
-    def download(self):
+    def download(self,*args):
         if not 'download' in self.worker_queue.queue:
             if not self.worker_job == 'download':
                 self.worker_queue.put('download')

@@ -6,7 +6,6 @@ if float(html2text.__version__) < float(3.1):
 html2text.IGNORE_ANCHORS = True
 html2text.IGNORE_IMAGES = True
 
-import logging
 import os
 import sys
 import time
@@ -15,12 +14,15 @@ import urlparse
 import urllib
 import hashlib
 import threading
-import class_sqlWorker
+import logging
+
 import StringIO
 import traceback
 import tempfile
 import webbrowser
+
 import class_mimetypes
+import class_sqlWorker
 
 
 class Feed:
@@ -28,12 +30,8 @@ class Feed:
     """Feed Object:
     This object represents both:
     An online RSS Feed and a Local Sqlite Database
-    The Sync downloads all Metadata and HTML Code into the Database
+    The feed_download downloads all Metadata and HTML Code into the Database
     All Feeds could then be viewed offline.
-    #url       : Feed url
-    #path      : Path of the local DB
-    #timeout   : Socket timeout in seconds for downloading
-    #maxthreads: Thread count used while syncing
     """
 
     def __init__(self, plugin, settings):
@@ -746,12 +744,10 @@ class Feed:
                 tmp.seek(0, 0)
                 self.log.debug(tmp.read())
                 tmp.close()
-                
-
-
 
     def feed_delete(self):
         self.feed_close()
+        time.sleep(1)
         os.path.remove(self.db_path)
         return True
         

@@ -1,34 +1,30 @@
 #!/usr/bin/env python
 import os
 import sys
-
-import Queue
 import time
 import datetime
+import Queue
 import logging
-import logging.handlers
-import multiprocessing
 import threading
-import resource
 import thread
 import tempfile
-import StringIO
 
-import traceback
-
-import gtk
-import pygtk
-import gobject
-
-gobject.threads_init()
-if gtk.pygtk_version < (2,3,90):
-   print "PyGtk 2.3.90 or later required for this program"
-   raise SystemExit
-
+#Internal Libs
 import singleton
 import class_settings
 import class_feedhamster
 import class_translator
+
+#GTK
+import gtk
+import pygtk
+import gobject
+if gtk.pygtk_version < (2,3,90):
+   print "PyGtk 2.3.90 or later required for this program"
+   raise SystemExit
+
+gobject.threads_init()
+
 
 class FeedHamsterGUI:
     def __init__(self):
@@ -39,21 +35,18 @@ class FeedHamsterGUI:
         self.shutdown = False
         self.stopFeedViewColorChange = False
         tempdir = tempfile.gettempdir()
-        self.syncStatus = None
 
         self.log.info('Initializing Gui')
         self.feedOpenDates = {}
         self.openFeed = None
         self.summarySize = 8
-        self.syncTime = 30
-        self.deleteQueueLock = thread.allocate_lock()
-        self.deleteQueue = []
 
         sets = class_settings.Settings('Feedhamster')
 
         path = sets.read('Settings', 'Feedpath')
         lang = sets.read('Settings', 'Language')
         self.lng = class_translator.Translator(language='de_DE')
+        
         if not path:
             question = self.lng.getText('main','messageworkingdir','Open Working Directory.')
             dialog = gtk.FileChooserDialog(question,None,gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
@@ -70,83 +63,58 @@ class FeedHamsterGUI:
         self.path = path
         self.feedhamster = class_feedhamster.FeedHamster(self.path)
         #~ self.feedhamster.offline_mode = True
-        self.GuiMain()
-        self.GuiTop()
-        self.GuiFeeds()
-        self.GuiNews()
-        self.GuiBottom()
+        self._startup_gui_1_main()
+        self._startup_gui_2_top()
+        self._startup_gui_3_feeds()
+        self._startup_gui_4_news()
+        self._startup_gui_5_bottom()
 
         #Activate Gui
         self.log.debug('Gui Ready... Showing')
         self.mainWindow.show()
 
-        self._NamedThread('Delete Deamon',target=self.DeamonThreadDelete)
-        self._NamedThread('Worker',target=self._worker_thread)
-        self.workerQueue.put('changecolors')
+        self._create_named_thread('Worker',target=self._worker_thread)
+        if not ['changecolors'] in self.workerQueue.queue:
+            self.workerQueue.put(['changecolors'])
 
-    def ActionStatusBarPrint(self,message):
-        def senddata(data):
+    def push_to_statusbar(self,message):
+        def sub_push_to_statusbar(data):
             self.statusBar.pop(0)
             self.statusBar.push(0,data)
         if message:
-            gobject.idle_add(senddata,message)
+            gobject.idle_add(sub_push_to_statusbar,message)
 
-    def GuiTop(self):
+    def _startup_gui_2_top(self):
         
         button = gtk.Button('Download')
-        button.connect("clicked", self.ActionStartSync)
+        button.connect("clicked", self.feedhamster.download)
         self.topBox.pack_start(button,False, False, 2)
         button.show()
         
         button = gtk.Button('Add Feed')
-        button.connect("clicked", self.button_add_feed)
+        button.connect("clicked", self.subgui_add_feed)
         self.topBox.pack_start(button,False, False, 0)
         button.show()
         
-        button = gtk.Button('Import')
-        button.connect("clicked", self.ActionStartSync)
-        self.topBox.pack_start(button,False, False, 0)
-        button.show()
+        #~ button = gtk.Button('Import')
+        #~ button.connect("clicked", self.ActionStartSync)
+        #~ self.topBox.pack_start(button,False, False, 0)
+        #~ button.show()
         
-        button = gtk.Button('Export')
-        button.connect("clicked", self.ActionStartSync)
-        self.topBox.pack_start(button,False, False, 0)
-        button.show()
-        
-        button = gtk.Button('Settings')
-        button.connect("clicked", self.ActionStartSync)
-        self.topBox.pack_start(button,False, False, 0)
-        button.show()
-        
-        
-        
-        #create main menus
-        #~ topMenu = gtk.Menu()
-        #~ entries = []
-        #~
-        #~ entries.append([self.lng.getText('top','menufileadd','Add new Source'),self.EventFeedAdd])
-        #~ entries.append([self.lng.getText('top','menufileimport','Import Feed'),self.ActionStartSync])
-        #~ entries.append([self.lng.getText('top','menufileexport','Export Feed'),self.ActionStartSync])
-        #entries.append([self.lng.getText('maingui','settings') or 'Settings',self.EventSettings])
-        #~ entries.append([self.lng.getText('top','menufileexit','Beenden'),self.EventShutDown])
-        #~
-        #~ for entry in entries:
-            #~ menu_items = gtk.MenuItem(entry[0])
-            #~ topMenu.append(menu_items)
-            #~ menu_items.connect("activate", entry[1], entry[0])
-            #~ menu_items.show()
-        #~ root_menu = gtk.MenuItem(self.lng.getText('top','menufile','File'))
-        #~ root_menu.show()
-        #~ root_menu.set_submenu(topMenu)
-        #~ menu_bar = gtk.MenuBar()
-        #~ self.topBox.pack_start(menu_bar, False, False, 2)
-        #~ menu_bar.show()
-        #~ menu_bar.append(root_menu)
+        #~ button = gtk.Button('Export')
+        #~ button.connect("clicked", self.ActionStartSync)
+        #~ self.topBox.pack_start(button,False, False, 0)
+        #~ button.show()
+        #~ 
+        #~ button = gtk.Button('Settings')
+        #~ button.connect("clicked", self.ActionStartSync)
+        #~ self.topBox.pack_start(button,False, False, 0)
+        #~ button.show()
 
         #create search bar
         searchBar = gtk.Entry()
         searchBar.set_max_length(50)
-        searchBar.connect("activate", self.EventSearchRun)
+        searchBar.connect("activate", self.gui_event_search_activated)
         searchBar.set_text(self.lng.getText('top','search','Search'))
         self.topBox.pack_end(searchBar, False, False, 2)
         searchBar.show()
@@ -159,7 +127,7 @@ class FeedHamsterGUI:
         comboCount.append_text('500')
         comboCount.append_text('1000')
         comboCount.append_text(self.lng.getText('top','comboall','All'))
-        comboCount.connect('changed', self.EventComboChanged,  'count')
+        comboCount.connect('changed', self.gui_event_combo_changed,  'count')
         comboCount.set_active(0)
         comboCount.show()
         self.comboCount = 0
@@ -168,18 +136,18 @@ class FeedHamsterGUI:
         comboMeta.append_text(self.lng.getText('top','combounread','Unread'))
         comboMeta.append_text(self.lng.getText('top','combofav','Favorites'))
         comboMeta.append_text(self.lng.getText('top','comboallnews','All'))
-        comboMeta.connect('changed', self.EventComboChanged, 'meta')
+        comboMeta.connect('changed', self.gui_event_combo_changed, 'meta')
         comboMeta.set_active(0)
         comboMeta.show()
         self.comboMeta = 0
 
-    def GuiMain(self):
+    def _startup_gui_1_main(self):
         self.log.debug('Create Main Window')
         self.mainWindow = gtk.Window(gtk.WINDOW_TOPLEVEL)
         self.mainWindow.set_position(gtk.WIN_POS_CENTER)
         self.mainWindow.set_size_request(1000, 500)
         self.mainWindow.set_title("FeedHamster (v%s)"%self.feedhamster.settings['version'])
-        self.mainWindow.connect("delete_event", self.EventShutDown)
+        self.mainWindow.connect("delete_event", self.function_shutdown)
 
         picture = "./images/hamster.png"
         if os.path.isfile(picture):
@@ -187,7 +155,7 @@ class FeedHamsterGUI:
             pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(picture,60,60)
             statusicon = gtk.StatusIcon()
             statusicon = gtk.status_icon_new_from_pixbuf(pixbuf)
-            statusicon.connect("activate",self.EventTrayClick)
+            statusicon.connect("activate",self.gui_event_tray_clicked)
         else:
             self.log.warning('Picture Missing: %s'%os.path.abspath(picture))
         self.log.debug('Done')
@@ -215,103 +183,40 @@ class FeedHamsterGUI:
         self.bottonBox = gtk.HBox(False, 0)
         self.mainBox.pack_end(self.bottonBox, False, False, 2)
         self.bottonBox.show()
-
-    def DeamonThreadDelete(self):
-        while 1:
-
-            time.sleep(1)
-            if self.shutdown:
-                self.log.debug('Exit Delete Thread')
-                return
-
-            if len(self.deleteQueue) > 0:
-
-                self.deleteQueueLock.acquire()
-                todelete = self.deleteQueue
-                self.deleteQueue = []
-                self.deleteQueueLock.release()
-
-                while len(todelete) > 0:
-                    self.ActionStatusBarPrint('Delete Jobs Queue: %s'%len(todelete))
-
-                    message = todelete.pop()
-                    feedID = message[0]
-                    messageID = message[1]
-                    feedObj = self.feedhamster.feed_get(feedID)
-                    self.log.debug('Delete %s/%s'%(feedID,messageID))
-                    feedObj.message_delete(messageID)
-                self.ActionStatusBarPrint('Ready')
-
-
-
-
-    #~ def WorkerSync(self):
-        #~ if self.syncStatus != None:
-            #~ return
-            #~
-        #~ self.syncStatus = 0
-        #~ feedobs = self.feedhamster.feedobs
-        #~
-        #~ for feedobj in feedobs:
-            #~
-            #~ while self._CountSyncs() > 3:
-                #~ time.sleep(1)
-            #~
-            #~ self._NamedThread('update_thread',target=feedobj.sync)
-            #~
-        #~ self.syncStatus = None
-        #~ self.ActionStatusBarPrint('Ready')
-        #~ self.ActionFeedChangeColors()
-
-    #~ def WorkerSync(self):
-        #~ self.ActionStatusBarPrint('Sync....')
-        #~ self.feedhamster.FeedsSync()
-        #~ time.sleep(0.1)
-        #~ while self.feedhamster.sync_status != None:
-            #~ time.sleep(0.5)
-            #~ if self.shutdown:
-                #~ return
-            #~ self.ActionStatusBarPrint(self.feedhamster.sync_status)
-        #~ self.ActionStatusBarPrint('Ready')
-        #~ self.ActionFeedChangeColors()
-
-    def _threadsListRunning(self):
-        outList = []
-        threads = threading.enumerate()
-        for th in threads:
-            outList.append(th.getName())
-        return outList
         
-    def EventShutDown(self,*args):
+    def function_shutdown(self,*args):
         
-        self.workerQueue.put('shutdown')
+        self.workerQueue.put(['shutdown'])
 
         gtk.main_quit()
     
-    def show_feedhamster_status(self):
+    def push_to_feedhamster_status(self):
         if self.feedhamster.worker_job:
+            def sub_push_to_progressbar():
+                self.progress_bar.set_text('%s: %s Percent'%(self.feedhamster.worker_job.capitalize(),self.feedhamster.worker_status))
+                self.progress_bar.update(float(self.feedhamster.worker_status)/100)
             gobject.idle_add(self.progress_bar.show)
-            self.progress_bar.set_text('%s: %s Percent'%(self.feedhamster.worker_job.capitalize(),self.feedhamster.worker_status))
-            self.progress_bar.update(float(self.feedhamster.worker_status)/100)
+            gobject.idle_add(sub_push_to_progressbar)
         else:
             gobject.idle_add(self.progress_bar.hide)
     
     def _worker_thread(self):
         while True:
             try:
-                job = self.workerQueue.get(block=True,timeout=0.1)
+                job = self.workerQueue.get(block=True,timeout=0.2)
             except:
-                job = None
-                self.show_feedhamster_status()
+                self.push_to_feedhamster_status()
+                continue
 
 
-            if job == 'shutdown':
+            if job[0] == 'shutdown':
                 self.log.info('Shutting Down')
-                self.shutdown = True
                 self.feedhamster.feedhamster_shutdown()
+                self.shutdown = True
                 return
 
-            if job == 'changecolors':
+            if job[0] == 'changecolors':
+                self.log.info('Updating Gui Colors')
                 if self.shutdown:
                     continue
                 model = self.feedView.get_model()
@@ -327,7 +232,8 @@ class FeedHamsterGUI:
                     childiter = folder.iterchildren()
                     changed = False
                     for child in childiter:
-                        self.show_feedhamster_status()
+                        time.sleep(0.1)
+                        self.push_to_feedhamster_status()
                         if self.shutdown:
                             self.log.info('Ended')
                             return
@@ -344,14 +250,13 @@ class FeedHamsterGUI:
                         folder[2] = '#901000'
                     else:
                         folder[2] = None
+                        
+            if job[0] == 'delete_message':
+                self.log.debug('Deleting Message:%s/%s'%(job[1],job[2]))
+                feed = self.feedhamster.feed_get(job[1])
+                feed.message_delete(job[2])
 
-
-
-    def ActionStartSync(self, *args):
-        self.feedhamster.download()
-
-    def ActionFeedViewBuild(self):
-
+    def build_feed_view(self):
         feedList = []
         for feed in self.feedhamster.feedobs:
             name = feed._read_setting('name')
@@ -373,7 +278,7 @@ class FeedHamsterGUI:
         self.feedView.set_model(feedStore)
 
 
-    def ActionMessageViewBuild(self, fid, keyword=None):
+    def build_message_view(self, fid, keyword=None):
 
         gobject.idle_add(self.spinner.show)
         gobject.idle_add(self.spinner.start)
@@ -389,10 +294,7 @@ class FeedHamsterGUI:
         pluginname = feedObj._read_setting('plugin')
         size = feedObj.feed_get_size(True)
         newsCount = feedObj.feed_count('newest')
-
-
         store = gtk.ListStore(str, bool, bool, str, str, str, str)
-
         count = -1
         if self.comboCount == 0:
             count = 50
@@ -420,7 +322,7 @@ class FeedHamsterGUI:
             counter += 1
 
 
-            self.ActionStatusBarPrint('Loading: %s from %s'%(counter,newscount))
+            self.push_to_statusbar('Loading: %s from %s'%(counter,newscount))
 
             tree_sel = self.feedView.get_selection()
             (tm, ti) = tree_sel.get_selected()
@@ -460,15 +362,16 @@ class FeedHamsterGUI:
         gobject.idle_add(self.newsView.set_model,store)
         sbString = '%s\tType:%s\t\tSize:%s\tShowing:%s\t| Feeds:%s\tUnread:%s\tFavorites:%s\tNews:%s'%(name,pluginname,size,showing,feedscount,unread,favorites,newsCount)
         gobject.idle_add(self.mainWindow.set_title,"feedhamster (%s)"%name)
-        self.ActionStatusBarPrint(sbString)
+        self.push_to_statusbar(sbString)
         gobject.idle_add(self.spinner.stop)
         gobject.idle_add(self.spinner.hide)
-        self.workerQueue.put('changecolors')
+        if not ['changecolors'] in self.workerQueue.queue:
+            self.workerQueue.put(['changecolors'])
 
-    def EventTrayClick(self):
+    def gui_event_tray_clicked(self):
         pass
 
-    def EventMessageToggleRead(self, cell, path, model, *ignore):
+    def gui_event_message_toggle_read(self, cell, path, model, *ignore):
         model = self.newsView.get_model()
         it = model.get_iter(path)
         value = not model[it][1]
@@ -476,7 +379,7 @@ class FeedHamsterGUI:
         feedObj = self.feedhamster.feed_get(self.openFeed)
         feedObj.message_set_meta(model[it][0],'read',value)
 
-    def EventMessageToggleFavorite(self, cell, path, model, *ignore):
+    def gui_event_message_toggle_favorite(self, cell, path, model, *ignore):
         model = self.newsView.get_model()
         it = model.get_iter(path)
         value = not model[it][2]
@@ -484,7 +387,7 @@ class FeedHamsterGUI:
         feedObj = self.feedhamster.feed_get(self.openFeed)
         feedObj.message_set_meta(model[it][0],'favorite',value)
 
-    def EventMessageDelete(self, widget):
+    def function_message_delete(self, widget):
         feedObj = self.feedhamster.feed_get(self.openFeed)
         model = self.newsView.get_model()
         tree_sel = self.newsView.get_selection()
@@ -492,12 +395,10 @@ class FeedHamsterGUI:
         nid = (tm.get_value(ti, 0))
         row = tree_sel.get_selected_rows()[1][0]
         del(model[row])
-        self.Lock.acquire()
-        self.deleteQueue.append([feedObj.feed_id,nid])
-        self.deleteQueueLock.release()
+        self.workerQueue.put(['delete_message',feedObj.feed_id,nid])
 
 
-    def EventFeedKeyPress(self,treeview, event):
+    def gui_event_feed_keypress(self,treeview, event):
         key = gtk.gdk.keyval_name(event.keyval)
         if key == 'Right':
             tree_sel = treeview.get_selection()
@@ -508,42 +409,33 @@ class FeedHamsterGUI:
                 treeview.collapse_all()
                 treeview.expand_row(path,True)
 
-    def EventMessageKeyPress(self,treeview, event):
+    def gui_event_message_keypress(self,treeview, event):
         key = gtk.gdk.keyval_name(event.keyval)
 
         if key == 'Delete':
-
             feedObj = self.feedhamster.feed_get(self.openFeed)
-
             model = treeview.get_model()
             if len(model) == 0:
                 return
-
+                
             if len(model) == 1:
                 ts = treeview.get_selection()
                 row = ts.get_selected_rows()[1][0]
-                fid = model[row][0]
+                mid = model[row][0]
                 del(model[0])
-                self.deleteQueueLock.acquire()
-                self.deleteQueue.append([feedObj.feed_id,fid])
-                self.deleteQueueLock.release()
+                self.workerQueue.put(['delete_message',feedObj.feed_id,mid])
                 return
-
             ts = treeview.get_selection()
             row = ts.get_selected_rows()[1][0]
-            fid = model[row][0]
-
+            mid = model[row][0]
             if row[0] + 1 >= len(model):
                 treeview.set_cursor(row[0]-1)
             else:
                 treeview.set_cursor(row[0]+1)
-
             del(model[row])
-            self.deleteQueueLock.acquire()
-            self.deleteQueue.append([feedObj.feed_id,fid])
-            self.deleteQueueLock.release()
+            self.workerQueue.put(['delete_message',feedObj.feed_id,mid])
 
-    def GuiFeeds(self):
+    def _startup_gui_3_feeds(self):
         #Create Treeview for Feeds
         sw = gtk.ScrolledWindow()
         sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
@@ -552,9 +444,9 @@ class FeedHamsterGUI:
 
         self.feedStore = gtk.TreeStore(str,str,str)
         self.feedView = gtk.TreeView(self.feedStore)
-        self.feedView.connect('key-press-event', self.EventFeedKeyPress)
-        self.feedView.connect('button-release-event' , self.EventFeedViewClicked)
-        self.feedView.connect('cursor-changed' , self.EventFeedViewChanged)
+        self.feedView.connect('key-press-event', self.gui_event_feed_keypress)
+        self.feedView.connect('button-release-event' , self.gui_event_feed_clicked)
+        self.feedView.connect('cursor-changed' , self.gui_event_feed_cursor_changed)
         self.tvcolumn = gtk.TreeViewColumn(self.lng.getText('feeds','categories','Categories'))
 
         self.tvcolumn.set_sort_column_id(0)
@@ -566,7 +458,7 @@ class FeedHamsterGUI:
         self.tvcolumn.add_attribute(self.cell, 'foreground', 2)
 
         self.feedView.set_search_column(2)
-        self.ActionFeedViewBuild()
+        self.build_feed_view()
         sw.add(self.feedView)
         self.feedView.show()
         sw.show()
@@ -576,14 +468,14 @@ class FeedHamsterGUI:
         menuitem1 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedrename','Rename'))
         menuitem2 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedsetgenre','Set Genre'))
         menuitem3 = gtk.MenuItem(self.lng.getText('feeds','buttonfeeddelete','Delete'))
-        menuitem4 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedsync','Sync'))
+        menuitem4 = gtk.MenuItem(self.lng.getText('feeds','buttonfeeddownload','Download'))
         menuitem5 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedproerties','Properties'))
 
-        menuitem1.connect("activate", self.EventFeedSetName)
-        menuitem2.connect("activate", self.EventFeedSetGenre)
-        menuitem3.connect("activate", self.EventFeedDelete)
-        menuitem4.connect("activate", self.EventFeedSync)
-        menuitem5.connect("activate", self.EventFeedShowProperties)
+        menuitem1.connect("activate", self.subgui_feed_set_name)
+        menuitem2.connect("activate", self.subgui_feed_set_genre)
+        menuitem3.connect("activate", self.function_feed_delete)
+        menuitem4.connect("activate", self.function_feed_download)
+        menuitem5.connect("activate", self.subgui_feed_properties)
 
         self.FeedViewMenu.append(menuitem1)
         self.FeedViewMenu.append(menuitem2)
@@ -591,7 +483,7 @@ class FeedHamsterGUI:
         self.FeedViewMenu.append(menuitem4)
         self.FeedViewMenu.append(menuitem5)
 
-    def GuiBottom(self):
+    def _startup_gui_5_bottom(self):
         #Create Button Statusbar
         self.spinner = gtk.Spinner()        
         self.bottonBox.pack_start(self.spinner, False, True, 5)       
@@ -605,7 +497,7 @@ class FeedHamsterGUI:
         self.statusBar.show()
         self.log.debug('Done')
 
-    def GuiNews(self):
+    def _startup_gui_4_news(self):
         #Create News View
         sw = gtk.ScrolledWindow()
         sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
@@ -614,10 +506,10 @@ class FeedHamsterGUI:
 
         store = gtk.ListStore(str, bool, bool, str, str, str, str)
         self.newsView = gtk.TreeView(store)
-        self.newsView.connect('row-activated', self.EventMessageOpen)
-        self.newsView.connect('key-press-event', self.EventMessageKeyPress)
-        self.newsView.connect('button-release-event' , self.EventMessageViewClicked)
-        self.newsView.connect('cursor-changed' , self.EventMessageSelect)
+        self.newsView.connect('row-activated', self.function_message_open)
+        self.newsView.connect('key-press-event', self.gui_event_message_keypress)
+        self.newsView.connect('button-release-event' , self.gui_event_message_clicked)
+        self.newsView.connect('cursor-changed' , self.gui_event_message_select)
         self.newsView.set_rules_hint(True)
         sw.add(self.newsView)
 
@@ -636,9 +528,9 @@ class FeedHamsterGUI:
                 cell = gtk.CellRendererToggle()
                 #~ cell.set_activatable(True)
                 if entry[2] == 'read':
-                    cell.connect("toggled", self.EventMessageToggleRead,store)
+                    cell.connect("toggled", self.gui_event_message_toggle_read,store)
                 if entry[2] == 'fav':
-                    cell.connect("toggled", self.EventMessageToggleFavorite,store)
+                    cell.connect("toggled", self.gui_event_message_toggle_favorite,store)
                 column = gtk.TreeViewColumn(entry[0], cell, active=counter)
 
             column.set_sort_column_id(counter)
@@ -664,11 +556,11 @@ class FeedHamsterGUI:
         menuitem4 = gtk.MenuItem(self.lng.getText('news','menudelete','Delete'))
         menuitem5 = gtk.MenuItem(self.lng.getText('news','menuproperties','Properties'))
 
-        menuitem1.connect("activate", self.EventMessageMenuOpen)
-        menuitem2.connect("activate", self.EventMessageMenuOpenOnline)
-        menuitem3.connect("activate", self.EventMessageSaveAs)
-        menuitem4.connect("activate", self.EventMessageDelete)
-        menuitem5.connect("activate", self.EventMessageShowProperties)
+        menuitem1.connect("activate", self.function_message_open)
+        menuitem2.connect("activate", self.function_message_open_online)
+        menuitem3.connect("activate", self.subgui_message_save)
+        menuitem4.connect("activate", self.function_message_delete)
+        menuitem5.connect("activate", self.subgui_message_properties)
 
         self.NewsViewMenu.append(menuitem1)
         self.NewsViewMenu.append(menuitem2)
@@ -678,7 +570,7 @@ class FeedHamsterGUI:
         self.NewsViewMenu.append(gtk.SeparatorMenuItem())
         self.NewsViewMenu.append(menuitem5)
 
-    def EventMessageSaveAs(self,widget,*args):
+    def subgui_message_save(self,widget,*args):
         feedObj = self.feedhamster.feed_get(self.openFeed)
         tree_sel = self.newsView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -723,7 +615,7 @@ class FeedHamsterGUI:
         filechooserdialog.destroy()
         return
 
-    def EventFeedShowProperties(self, *args):
+    def subgui_feed_properties(self, *args):
         tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
         fid = (tm.get_value(ti, 1))
@@ -769,7 +661,7 @@ class FeedHamsterGUI:
         r = d.run()
         d.destroy()
 
-    def EventMessageShowProperties(self,widget,*args):
+    def subgui_message_properties(self,widget,*args):
         feedObj = self.feedhamster.feed_get(self.openFeed)
         tree_sel = self.newsView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -820,7 +712,7 @@ class FeedHamsterGUI:
         r = d.run()
         d.destroy()
 
-    def EventMessageSelect(self, widget, *args):
+    def gui_event_message_select(self, widget, *args):
 
         feedObj = self.feedhamster.feed_get(self.openFeed)
 
@@ -857,7 +749,7 @@ class FeedHamsterGUI:
         self.summaryView.show()
         textbuffer.set_text(summary)
 
-    def EventMessageMenuOpenOnline(self,widget,*args):
+    def function_message_open_online(self,widget,*args):
         feedObj = self.feedhamster.feed_get(self.openFeed)
         tree_sel = self.newsView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -865,7 +757,9 @@ class FeedHamsterGUI:
         tm.set_value(ti, 1,True)
         feedObj.message_open(nid,True)
 
-    def EventMessageMenuOpen(self,widget,*args):
+
+    def function_message_open(self, widget,*args):
+        
         feedObj = self.feedhamster.feed_get(self.openFeed)
         tree_sel = self.newsView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -873,22 +767,15 @@ class FeedHamsterGUI:
         tm.set_value(ti, 1,True)
         feedObj.message_open(nid)
 
-    def EventMessageOpen(self, cell, path, model, *args):
-        model = cell.get_model()
-        model[path][1] = True
-        messageID = model[path][0]
-        feedObj = self.feedhamster.feed_get(self.openFeed)
-        feedObj.message_open(messageID,online=False)
-
-    def EventFeedSync(self, *args):
+    def function_feed_download(self, *args):
         tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
         fid = (tm.get_value(ti, 1))
         feedObj = self.feedhamster.feed_get(fid)
 
-        self._NamedThread('Sync ...',target=feedObj.sync)
+        self._create_named_thread('Sync ...',target=feedObj.feed_download)
 
-    def EventFeedSetName(self, *args):
+    def subgui_feed_set_name(self, *args):
 
         tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -920,9 +807,9 @@ class FeedHamsterGUI:
 
         if r == gtk.RESPONSE_OK:
             feedObj._write_setting('name',name,True)
-            self.ActionFeedViewBuild()
+            self.build_feed_view()
 
-    def EventSettings(self, *args):
+    def subgui_settings(self, *args):
 
         dialog = gtk.Dialog("Settings",
                            None,
@@ -936,7 +823,7 @@ class FeedHamsterGUI:
         r = dialog.run()
         dialog.destroy()
 
-    def EventFeedSetGenre(self, *args):
+    def subgui_feed_set_genre(self, *args):
         default = 'Genre'
         tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -961,10 +848,10 @@ class FeedHamsterGUI:
         d.destroy()
         if r == gtk.RESPONSE_OK:
             feedObj._write_setting('genre',name,True)
-            self.ActionFeedViewBuild()
+            self.build_feed_view()
 
-    def button_add_feed(self, *args):
-        self.ActionStatusBarPrint('Add new Feed')
+    def subgui_add_feed(self, *args):
+        self.push_to_statusbar('Add new Feed')
         while 1:
             message = self.lng.getText('top','messagefeedadd','Please Enter the Feed Type and URL:')
             message += ' ' * 20
@@ -1001,11 +888,11 @@ class FeedHamsterGUI:
                 fid = self.feedhamster.feed_create(url,addtype)
                 if fid:
                     feed = self.feedhamster.feed_get(fid)
-                    self.ActionFeedViewBuild()
+                    self.build_feed_view()
                     d.destroy()
-                    self.ActionStatusBarPrint('Done')
+                    self.push_to_statusbar('Done')
                     time.sleep(1)
-                    self.ActionStatusBarPrint('Ready')
+                    self.push_to_statusbar('Ready')
                     break
                 else:
                     d.destroy()
@@ -1024,11 +911,11 @@ class FeedHamsterGUI:
                         break
             else:
                 d.destroy()
-                self.ActionStatusBarPrint('Ready')
+                self.push_to_statusbar('Ready')
                 break
 
 
-    def EventFeedDelete(self, *args):
+    def function_feed_delete(self, *args):
         tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
         fid = (tm.get_value(ti, 1))
@@ -1045,7 +932,7 @@ class FeedHamsterGUI:
         r = d.run()
         d.destroy()
         if r == gtk.RESPONSE_OK:
-            self.ActionStatusBarPrint('Deleting: %s'%fid)
+            self.push_to_statusbar('Deleting: %s'%fid)
 
 
             answer = self.feedhamster.feed_delete(fid)
@@ -1067,19 +954,19 @@ class FeedHamsterGUI:
                 return
 
             time.sleep(1)
-            self.ActionFeedViewBuild()
-            self.ActionStatusBarPrint('Ready')
-            self.ActionFeedViewBuild()
+            self.build_feed_view()
+            self.push_to_statusbar('Ready')
+            self.build_feed_view()
 
-    def EventSearchRun(self, widget):
+    def gui_event_search_activated(self, widget):
         keyword = widget.get_text()
         tree_sel = tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
         fid = tm.get_value(ti, 1)
 
-        self._NamedThread('Searching...',target=self.ActionMessageViewBuild, args=(fid,keyword))
+        self._create_named_thread('Searching...',target=self.build_message_view, args=(fid,keyword))
 
-    def EventComboChanged(self, widget, ctype):
+    def gui_event_combo_changed(self, widget, ctype):
         if ctype == 'count':
             self.comboCount = widget.get_active()
         if ctype == 'meta':
@@ -1090,12 +977,12 @@ class FeedHamsterGUI:
             (tm, ti) = tree_sel.get_selected()
             fid = tm.get_value(ti, 1)
 
-            self._NamedThread('Rebuild Combo change...',target=self.ActionMessageViewBuild, args=(fid,))
+            self._create_named_thread('Rebuild Combo change...',target=self.build_message_view, args=(fid,))
 
         except:
             pass
 
-    def EventFeedViewChanged(self, treeview):
+    def gui_event_feed_cursor_changed(self, treeview):
         self.stopFeedViewColorChange = True
         tree_sel = treeview.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -1109,56 +996,18 @@ class FeedHamsterGUI:
             self.feedOpenDates = {}
             self.openFeed = fid
             self.log.debug('Selected Feed: %s'%fid)
-            self._NamedThread('MessageBuild',target=self.ActionMessageViewBuild, args=(fid,))
+            self._create_named_thread('MessageBuild',target=self.build_message_view, args=(fid,))
             self.feedOpenDates[fid] = [int(time.time()),tm,ti]
             self.stopFeedViewColorChange = False
 
-    def _NamedThread(self,name,**kwargs):
+    def _create_named_thread(self,name,**kwargs):
         td = threading.Thread(**kwargs)
         td.setName(name)
         td.start()
 
-    #~ def _CountSyncs(self):
-        #~ threads = threading.enumerate()
-        #~ counter = 0
-        #~ for th in threads:
-            #~ if th.isAlive():
-                #~ if 'update_thread' in th.getName():
-                    #~ counter += 1
-        #~ return counter
-
-    def EventFeedViewClicked(self, treeview, event):
-
-        self.workerQueue.put('changecolors')
-
-        #~ if event.button == 1: # left click
-            #~ help(treeview)
-            #~ x = int(event.x)
-            #~ y = int(event.y)
-            #~ pthinfo = treeview.get_path_at_pos(x, y)
-            #~ print pthinfo[1]
-            #~ treeview.set_cursor_on_cell(pthinfo[1])
-
-
-            #~ tree_sel = treeview.get_selection()
-            #~ (tm, ti) = tree_sel.get_selected()
-
-            #~ if ti == None:
-                #~ return
-                #~
-#~
-            #~
-            #~
-            #~ model = treeview.get_model()
-            #~
-            #~
-            #~ if model.iter_has_child(ti):
-                #~ path = tm.get_path(ti)
-                #~ treeview.collapse_all()
-                #~ if treeview.row_expanded(path):
-                    #~ treeview.collapse_row(path)
-                #~ else:
-                    #~ treeview.expand_row(path,True)
+    def gui_event_feed_clicked(self, treeview, event):
+        if not ['changecolors'] in self.workerQueue.queue:
+            self.workerQueue.put(['changecolors'])
 
         if event.button == 3: # right click
             tree_sel = treeview.get_selection()
@@ -1174,7 +1023,7 @@ class FeedHamsterGUI:
                     self.FeedViewMenu.show_all()
                 return
 
-    def EventMessageViewClicked(self, treeview, event):
+    def gui_event_message_clicked(self, treeview, event):
         if event.button == 3: # right click
             model = treeview.get_model()
             if len(model) == 0:
@@ -1183,8 +1032,6 @@ class FeedHamsterGUI:
             self.NewsViewMenu.popup(None, None, None, event.button, event.time, None)
             self.NewsViewMenu.show_all()
 
-
-        
 if __name__ == "__main__":
 
     thisapp = singleton.singleinstance()

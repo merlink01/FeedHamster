@@ -2,7 +2,7 @@ import os
 import sys
 import sqlite3
 import class_pluginparser
-import class_sqlWorker
+import class_sqlworker
 import class_feed
 import logging
 
@@ -87,7 +87,7 @@ class FeedLoader:
             if os.path.splitext(entry)[1] == '.hdb':
                 full_path = os.path.join(self.settings['workingdir'], entry)
                 self.log.info('Load Feed: %s'%entry)
-                self.db = class_sqlWorker.sqlWorkerThread(full_path)
+                self.db = class_sqlworker.sqlWorkerThread(full_path)
                 self.db.start()
                 if not self._check_feed_db():
                     self.log.warning('DB Check Error: %s'%entry)

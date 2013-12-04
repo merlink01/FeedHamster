@@ -22,7 +22,7 @@ import tempfile
 import webbrowser
 
 import class_mimetypes
-import class_sqlWorker
+import class_sqlworker
 
 
 class Feed:
@@ -63,7 +63,7 @@ class Feed:
         self.log.debug('Starting with url:%s ,timeout:%s seconds' % (self.url, self.settings['download_timeout']))
 
         self.db_path = os.path.join(self.settings['workingdir'], self.feed_id + '.hdb')
-        self.db = class_sqlWorker.sqlWorkerThread(self.db_path,settings['tempdir'])
+        self.db = class_sqlworker.sqlWorkerThread(self.db_path,settings['tempdir'])
         self.db.start() 
             
     def feed_initiate(self):
@@ -408,114 +408,9 @@ class Feed:
     def feed_get_image(self):
         data = self._read_setting('image')
         if data == '-1':
-            pic = """iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABm
-                JLR0QAAAAAAAD5Q7t/AAAACXBIWXMAAA3WAAAN1gGQb3mcAAAA
-                CXZwQWcAAABAAAAAQADq8/hgAAAORklEQVR42u2aS48lR1bHfy
-                ciX/dVtx632+5u2wwej0Cy5bFsCUZGRrCwvPWOb4C85CPwAViw
-                GRaoMWskRuyMvBo2ICON5ZYHaTRCw8Pudj9U1V1Vt+o+8mbGYR
-                GZNyPvo6ra08Ia6JBSN/NkvP4nTpz/iZMXnpfn5Xl5Xv4fF9ki
-                t9VlvusJPsPigLK61hWgqty6dWvw0UcfvfvDt374o8FgcCuO4s
-                FlvSq6QbhBqltq6xV6VF2vqo1E1+pKuz+FoliMx2dn937+5c8/
-                u3379r/cu3dvLCJEAB988AGj0Wjw47/68Z+99957fzocDl+01l
-                rxZTt41SvJNivkKWWqUM+lVogqCCgCqkgwvkpb5lS1LMvy7bff
-                fvDaa6/99Wg0+sv3339/bG/evMkXX3zBPJ//8Ycffvjno9HoZW
-                OMuRB5OFAAeJMsBKDfVhaucgu8oIBcJKuaiYgYY0y309kZjUav
-                JUly5+OPP/6VqV7aN99880fD4fDGxhW8AHytp02yFgARb5gh0E
-                tkIeBvA761dVR9/6oMdnZuvPHGG78vIlHt5OxgMLhlrY2eOfjq
-                99uAv/IqbwGvK1umHstaG/UHg1uArRVg4jgeXGL1W4FeCP5brv
-                yzAq+VHwhlIkIcxX3ALGlOEK7i8LYB5TcEfLPFVQC2mryqYkSw
-                RvBU4n+b0CCUSdBuu0xDenpKGUjgCJ9GBqVrFN7yLxcpwIjwnw
-                +O+cd/e0SBZQNhL0UB1FYtWa14WdGVDjc0k+CF0q6+qa9IC95/
-                /To3DgZLR0hg6VsVIAK/enTGX/yiy7RzDZFmXYSmDwnqb3sv1c
-                1V6q4CMtK+D/tq1V+VVcLs9B5v3JpyczTw+Ks6tfIu9PpihLTb
-                RXsDBN048adVwGXvANIIdlPvog8yb9InczicKIVrxrpsPiAkRR
-                eR+cbVv1QBALEozuhyJa4EYsNqbHpu3/s1sSL87j68sgMHHaEb
-                w/EMxrly/wwenMOsgIUDp+qd95b5+PnTOFcJRtILFKCBw0gMYC
-                8HcCVL2Kg0r9zICJHAqAvfG0IWCVnkXe5O6p+HKdwaKOM5jHN4
-                eC5MFrpmXQYfHot4ngtNvmEx3ayAMBIUIDaAYc0CuMKqts1x1U
-                wVg9CJhVEXRh3YSaAbV0oXmC3aFpsY2EsFCyQWurHyZCqUCpHA
-                vPTbJrPeaoqatKTBdiEL6Aq/UinA2G3AtQ244vOLTd2velqt6F
-                7mwcfVGIXzl4QUsGJViYXIeMvYzzzNpZH/nRWQl5BFcJbDxKyw
-                xTYWqAksDHRqC7CBAhpASicSDjp+4NPcD147S4K9ue6ohN0U+o
-                kHkzu/pwn6XwUdWmW4nRC/6l5pHriqUhphkEJhA+BB0LWVBdrR
-                oBIbUFMP3Ow3K8IP9uBGX1BVzhdwdwwnc6GsHVRgEaH1WPGKLU
-                olF3BlAFQ2b51QAUgTjq3TseBUcJVCUstmJ7hNAbUV1JViA2J9
-                s0iEqFJGL/ZUVTg/fCeC7+8q89JbwulcOJ4pTkMrEEQUAzgnKM
-                JUN/iXysJqmRFIIyGtTH9RwqTwkeiahVU3NefXscOaE9zGApuc
-                YGShGwt7mXdS9aQUIS/DCQixgSSBfqx0Y+Es95Mpnc9J9WI/+L
-                TwPOOcj1jDtTECBsGKN+mDrr86kWeL0in/dSw8OvfZnrafEUQb
-                S7Mr2K7mBAMN9BPY7/vBbaXKWqOLUtf2aWiSgxj61Qil8165E/
-                m25wuYLpRSm5WLjNCvmCCN/NWJYJBWlBhY0qt7yqKUFlPocoXr
-                wx0Ups4aXeIEa9ShEzQIg1RIK8dSaNvc1hyVgAThfKiMLBYy66
-                mqcMpO4p+94/SObDeDvY63tqii3hp0WVbZzKrPNILv7cK8aMaZ
-                FzBdCLPC+yAQctPSzvZIcLnrgwoi/lBUOm9WSBN5hdtkqQRlLd
-                iJjZJYH9H1Eu8wz/KKYoMzlkgQ/FR72KnfNqGCm3F9n524ETv1
-                VjkrYLYQFg7mRpvQrz46Byu+zgLLPeIn6xZz3PwciTJEDIg/rk
-                rdRwA45FvFBye92INKLFjxUd9u6idrZGVsURblditrbTXaY9e/
-                kYF+DN0IFgrjqJlZmH9Y3wJLU/C24LGVlA+/YPLgnOSFt0hHr2
-                M8JbQiuobuggOTKhYoS6VAWSzUU1NlVcZAbA3WBBa11Or6Ftpk
-                cWyoE7aLqkhzNYEjW/MBKxkeUQf5EWUxZn73n2F2RLb3KibqoC
-                5nMTmknJ8SZUOi7nVyukxyQ14orixxzqHOUZT+cpUX9ikpYacb
-                s9dLGfZjumlEbAVj2lss3CLbzhirilhajoARbUGUi/IBm0zET8
-                egxYzZwzvMD3+BiEXVoWWOaomIRWxKbgZMOGBqrpPbfZCoCaA2
-                mPPp2YJvZEocG/pZRL8T0+9EDLKYbmZJY0tUKUQVVPz5oYZkas
-                S1yYYaqben8y9Xk93rkaC22zUm5kdw6gnbMEcr/1CPqOrQYkrM
-                hCGP6Mt/MI9eYBq9TG4PUElAwqnXNOX7LhaO48WcJ+M5RoTYCn
-                FkGPZiXtztcH2YkiUWEWEyK7h7NKEolSw2DDox/Swiiw1J1M5r
-                Gqmou0Z2FRYIO1BXcvL4LqcnX1MWc0QMSdqjNxiRdXcxxjad18
-                anitU53cVXZMV9CjuksPsUdkhp+qjp4ogoZ08opg+JOtexnWtg
-                4uXedA7mecmjvOToZM69XszN/YydbsxXjybcezwBBWOEyHqFDT
-                oxe72Y/X7CwSChk3j/EpuGmlssoFtYgOClcwseP/x3xuP7gWKE
-                J4f/zc7ui+xf/z5J2mvbTKhhN8cW3yDua4xzlCUUpWM+m3N+cp
-                dieoRJdkj2Xie79jZZ7xoppyAWJxlqMlRTTscx4/MZ1kaUTolM
-                uEiO3MFRXnJ0OiOyhkFmubmX8dvXe/44f8EWv5AFavIQEU+BVC
-                etIufJ4VfMJiccvPADejvXEBHv8IqcfHbGbHbKfHrKIp9QLLyv
-                UPVO0bliqcxyOmU6fcj80b8y7x0wHO7RG1wnSnogFhWLmg7O9F
-                Hbx1r/q6YDEoHE3mEv97BjPHH8crrg0cmcF2yODNvYrs4CtQpc
-                law2zRZRVaaTE+5//SW9wTWMtRT5jHx+RlHkuLJotkYrgKn7CL
-                IDqrhiwuTknOn4HmnapzcY0R2MyDo7WHuGNUdVm1opCdg+zg7R
-                aA+NhmAyMHG1wsqT8wXzYo57KWoSoldmAQF1yuQ45/yJAwQTCV
-                GiRKlgouroWeacPrnb7Bxts7YrwJWVfzGe/8VWpz2pkigSKsMx
-                m54ym55yfPQVcdIj7QxIsz5JNiDNelibYGyElGcYHlSWkqLRDh
-                rt4eIRGu2CSTF1TgxdA99WQG1BwRn+5HTC9CynXPgK5UIppoKJ
-                lLgj2FhR552WOn+u19KhjiU9OUdAUVWgJF4JxgrGKiaq7wFTvR
-                fBuYLZ9ITZ9NgvgI2wNiZOuqSdAUnaJ046xHGGjVNMfoyYe0Qm
-                hXjIwl7j0eMZJ7/1CsIIDQ5F2xMiy6UUnownLIqy8m2N6ZcFuL
-                NKm9o+Ql9YtBmYotG6twL1uUdbXxIoRhADrizQsqDIJ0zODhER
-                jLGIsV4xcYcoTjE2whiLMRGzxZDT89EyR7C08K0sUDvB1YAgyP
-                8ti9sg+1bFW5I6wbuOdlgnpto+kWBii0mi5eczH5PUU5/idEbp
-                DE4NpbM4NRR/FHwj5KpOEP9Nb1EYRAVXJaFkGauH3+1bKgq7az
-                /70wKlWkoXUail1AiHn6j/tSimqmvWLicxGOsVID5KpXaqErYR
-                VA2dJKqeL3WCusaTpTM8nBxQFjtQdWJEq7SWq9JWshywOg6hVS
-                66kRtUpALoAft3FhUTgKiSABIu/ab7y94H9zH+WS9xgs1H4+Yw
-                ogiTckhRJ/YqMD6HFaQ7xTQTa90HK7R2/7T1V9tuG9O0lRS5Sr
-                Z5r17gBNU3zHZ9VuJpJ7d15X5dgCt1xTRUWgVs4XNii2UQ56H5
-                wK52Axud4PJXLHR2wdlff6IXKqkNRKp34bP3+P7ZiHinKKaRGa
-                nyDKZVJyPHWtPKdOtWJxhUUMTzUbYHGl1pJep3srISEgJcTtTX
-                MRIAWAI0S0ASADMr7VuAW/02fURuirVFy8mHG2EzCyz9gUU6e4
-                gkLTA1wLb2V1ZpZeKN3LQAhCt5eb1NiljtP7QMgyzOMObxFVhg
-                5T87Ctzc7/J7L0cstHbOQSRHGSiD5pfgObyvL1hp08jY1F+rn6
-                p/I9vHoaqj/rJ2wV438Xv/0v8HBN/OXOn4wzde4q1XRyvZlJVv
-                B9p6Ch7bMgkabOiuXXstxGjLWr1sqhsUAfqdpArsLsgK+5hFmo
-                +IQBJbRsNeEDxvAb82v6eTbVNAM86Kgq8ga6ZXR7b1J7EL8gFL
-                M6kb1hpz7c/mYTj5LP++dpGs7q8Vzj6FzFNfwHCVfmqCdHmenz
-                vnngnQ5lvV/w54LgG/nGsN1jnyPD8HXK2A8vjJk/tlsTz6fWer
-                vKq4q6wyVwRf/5ZlWR4fnzwAClO9KH/2s88/Pzw6Olr+OWLDv0
-                WeCXh4tiYeLNhlK1+zzuPHj4/u3Pnic1Ut7Xg85tNPP+WffvrT
-                w/2D/ZdeePHFVzudTmqMwRgjYkyLkhChlpmgU+p6sAxuNsoC6q
-                tlYqrIr+rPPI1shUpNML8adKUILYpCHzx4cPzJJ5/8w+3bf/O3
-                P/nJ30+brLkqN27c+J13/+DdP3nnnXfevDa6dpBlWbb8FrqJBd
-                Ye2oILqfKStu1m2+RXbq+z2Xx2eHh4dOfOnS8/++yzv7t///4v
-                a8UBYIzBOUeapiNr7SvAQETS2sp+c0v9XYk5MC7L8qvZbHZora
-                Usyza4mzdvhq2CP5j9nyiKP9cqwDfffPNdz+d5eV6el+fluy//
-                A9J8gKxqPpzYAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDEwLTA1LT
-                I0VDA3OjQyOjMwLTA2OjAw8BwQ8AAAACV0RVh0ZGF0ZTptb2Rp
-                ZnkAMjAxMC0wNS0yNFQwNzo0MjozMC0wNjowMIFBqEwAAAA1dE
-                VYdExpY2Vuc2UAaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcv
-                bGljZW5zZXMvTEdQTC8yLjEvO8G0GAAAABl0RVh0U29mdHdhcm
-                UAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAAPdEVYdFNvdXJjZQBu
-                dW92ZVhUMuogNtwAAAAidEVYdFNvdXJjZV9VUkwAaHR0cDovL2
-                51b3ZleHQucHdzcC5uZXSRicctAAAAAElFTkSuQmCC"""
+            picfile = open('images/no_pic.png')
+            data = base64.b64encode(picfile.read())
+            picfile.close()
         else:
             pic = data
         

@@ -6,8 +6,8 @@ Offline Feed Reader for Gnome
 This Progam is both:
 A library (class_feedhamster.py) and a Gnome Gui Application.
 
-The target is to create an Offline Feedreader that savesthe whole 
-contents of the Feeds in a SQLite Database File.
+The target is to create an Offline Feedreader that saves the whole 
+contents of the Feeds in SQLite Database Files.
 
 Instead of normal Feedreaders you have the Possibility to read the whole
 content of the message without internet connection.

@@ -92,7 +92,7 @@ class FeedHamsterGUI:
         button.show()
         
         button = gtk.Button('Add Feed')
-        button.connect("clicked", self.subgui_add_feed)
+        button.connect("clicked", self.subgui_feed_add)
         self.topBox.pack_start(button,False, False, 0)
         button.show()
         
@@ -850,13 +850,13 @@ class FeedHamsterGUI:
             feedObj._write_setting('genre',name,True)
             self.build_feed_view()
 
-    def subgui_add_feed(self, *args):
+    def subgui_feed_add(self, *args):
         self.push_to_statusbar('Add new Feed')
         while 1:
             message = self.lng.getText('top','messagefeedadd','Please Enter the Feed Type and URL:')
             message += ' ' * 20
             parent = self.mainWindow
-            default = 'http://news.google.de/news?q=bitmessage&output=rss'
+            default = 'https://github.com/merlink01.atom'
             d = gtk.MessageDialog(parent,
                                 gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
                                 gtk.MESSAGE_QUESTION,

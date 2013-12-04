@@ -85,16 +85,39 @@ class FeedHamsterGUI:
             gobject.idle_add(sub_push_to_statusbar,message)
 
     def _startup_gui_2_top(self):
-        
-        button = gtk.Button('Download')
+        border = 1
+        height = 37
+        image = gtk.Image()
+        image.set_from_file('images/download.png')
+        image.show()
+        button = gtk.Button()
+        button.set_size_request(60, height)
+        button.add(image)
         button.connect("clicked", self.feedhamster.download)
-        self.topBox.pack_start(button,False, False, 2)
+        self.topBox.pack_start(button,False, False, border)
         button.show()
         
-        button = gtk.Button('Add Feed')
+        image = gtk.Image()
+        image.set_from_file('images/add_feed.png')
+        image.show()
+        button = gtk.Button()
+        button.set_size_request(40, height)
+        button.add(image)
         button.connect("clicked", self.subgui_feed_add)
-        self.topBox.pack_start(button,False, False, 0)
+        self.topBox.pack_start(button,False, False, border)
         button.show()
+        
+        image = gtk.Image()
+        image.set_from_file('images/about.png')
+        image.show()
+        button = gtk.Button()
+        button.set_size_request(40, height)
+        button.add(image)
+        button.connect("clicked", self.subgui_about)
+        self.topBox.pack_start(button,False, False, border)
+        button.show()
+        
+        
         
         #~ button = gtk.Button('Import')
         #~ button.connect("clicked", self.ActionStartSync)
@@ -113,15 +136,16 @@ class FeedHamsterGUI:
 
         #create search bar
         searchBar = gtk.Entry()
-        searchBar.set_max_length(50)
+        searchBar.set_size_request(200, height)
         searchBar.connect("activate", self.gui_event_search_activated)
         searchBar.set_text(self.lng.getText('top','search','Search'))
-        self.topBox.pack_end(searchBar, False, False, 2)
+        self.topBox.pack_end(searchBar, False, False, border)
         searchBar.show()
 
         #create filter comboboxes
+        weidth = 100
         comboCount = gtk.combo_box_new_text()
-        self.topBox.pack_end(comboCount, False, False, 2)
+        self.topBox.pack_end(comboCount, False, False, border)
         comboCount.append_text('50')
         comboCount.append_text('100')
         comboCount.append_text('500')
@@ -129,15 +153,17 @@ class FeedHamsterGUI:
         comboCount.append_text(self.lng.getText('top','comboall','All'))
         comboCount.connect('changed', self.gui_event_combo_changed,  'count')
         comboCount.set_active(0)
+        comboCount.set_size_request(weidth, height)
         comboCount.show()
         self.comboCount = 0
         comboMeta = gtk.combo_box_new_text()
-        self.topBox.pack_end(comboMeta, False, False, 2)
+        self.topBox.pack_end(comboMeta, False, False, border)
         comboMeta.append_text(self.lng.getText('top','combounread','Unread'))
         comboMeta.append_text(self.lng.getText('top','combofav','Favorites'))
         comboMeta.append_text(self.lng.getText('top','comboallnews','All'))
         comboMeta.connect('changed', self.gui_event_combo_changed, 'meta')
         comboMeta.set_active(0)
+        comboCount.set_size_request(weidth, height)
         comboMeta.show()
         self.comboMeta = 0
 
@@ -822,6 +848,9 @@ class FeedHamsterGUI:
         dialog.vbox.pack_end(entry)
         r = dialog.run()
         dialog.destroy()
+        
+    def subgui_about(self,*args):
+        pass
 
     def subgui_feed_set_genre(self, *args):
         default = 'Genre'

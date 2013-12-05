@@ -39,7 +39,6 @@ class FeedHamsterGUI:
         self.log.info('Initializing Gui')
         self.feedOpenDates = {}
         self.openFeed = None
-        self.summarySize = 8
 
         sets = class_settings.Settings('Feedhamster')
 
@@ -59,9 +58,17 @@ class FeedHamsterGUI:
                 dialog.destroy()
             elif response == gtk.RESPONSE_CANCEL:
                 sys.exit(0)
-
         self.path = path
+
+        self.summarySize = sets.read('GuiSettings', 'SummarySize')
+        if not self.summarySize:
+            self.summarySize = 5
+            sets.write('GuiSettings', 'SummarySize',5)
+        else:
+            self.summarySize = int(self.summarySize)
+
         self.feedhamster = class_feedhamster.FeedHamster(self.path)
+        
         #~ self.feedhamster.offline_mode = True
         self._startup_gui_1_main()
         self._startup_gui_2_top()
@@ -74,15 +81,12 @@ class FeedHamsterGUI:
         self.mainWindow.show()
 
         self._create_named_thread('Worker',target=self._worker_thread)
-        if not ['changecolors'] in self.workerQueue.queue:
-            self.workerQueue.put(['changecolors'])
+        self.workerQueue.put(['changecolors'])
+        self.settings = sets
 
     def push_to_statusbar(self,message):
-        def sub_push_to_statusbar(data):
-            self.statusBar.pop(0)
-            self.statusBar.push(0,data)
-        if message:
-            gobject.idle_add(sub_push_to_statusbar,message)
+        gobject.idle_add(self.statusBar.pop,0)
+        gobject.idle_add(self.statusBar.push,0,message)
 
     def _startup_gui_2_top(self):
         border = 1
@@ -211,40 +215,37 @@ class FeedHamsterGUI:
         self.bottonBox.show()
         
     def function_shutdown(self,*args):
-        
-        self.workerQueue.put(['shutdown'])
-
+        self.shutdown = True
+        self.feedhamster.feedhamster_shutdown()
         gtk.main_quit()
     
     def push_to_feedhamster_status(self):
         if self.feedhamster.worker_job:
-            def sub_push_to_progressbar():
-                self.progress_bar.set_text('%s: %s Percent'%(self.feedhamster.worker_job.capitalize(),self.feedhamster.worker_status))
-                self.progress_bar.update(float(self.feedhamster.worker_status)/100)
             gobject.idle_add(self.progress_bar.show)
-            gobject.idle_add(sub_push_to_progressbar)
+            text = '%s: %s Percent'%(self.feedhamster.worker_job.capitalize(),self.feedhamster.worker_status)
+            gobject.idle_add(self.progress_bar.set_text,text)
+            if self.feedhamster.worker_status:
+                percent = float(self.feedhamster.worker_status)/100
+                gobject.idle_add(self.progress_bar.update,percent)
         else:
             gobject.idle_add(self.progress_bar.hide)
     
     def _worker_thread(self):
         while True:
+            if self.shutdown:
+                break
+                
             try:
                 job = self.workerQueue.get(block=True,timeout=0.2)
             except:
                 self.push_to_feedhamster_status()
                 continue
 
-
-            if job[0] == 'shutdown':
-                self.log.info('Shutting Down')
-                self.feedhamster.feedhamster_shutdown()
-                self.shutdown = True
-                return
-
             if job[0] == 'changecolors':
                 self.log.info('Updating Gui Colors')
                 if self.shutdown:
-                    continue
+                    return
+                    
                 model = self.feedView.get_model()
                 if not model:
                     continue
@@ -253,15 +254,14 @@ class FeedHamsterGUI:
                 for folder in treemodelrowiter:
                     
                     if self.shutdown:
-                        self.log.info('Ended')
                         return
+                        
                     childiter = folder.iterchildren()
                     changed = False
                     for child in childiter:
                         time.sleep(0.1)
                         self.push_to_feedhamster_status()
                         if self.shutdown:
-                            self.log.info('Ended')
                             return
 
                         feedObj = self.feedhamster.feed_get(child[1])
@@ -347,10 +347,11 @@ class FeedHamsterGUI:
         for message in news:
             counter += 1
 
-
             self.push_to_statusbar('Loading: %s from %s'%(counter,newscount))
 
             tree_sel = self.feedView.get_selection()
+            if not tree_sel:
+                return
             (tm, ti) = tree_sel.get_selected()
 
             fid = tm.get_value(ti, 1)
@@ -536,6 +537,7 @@ class FeedHamsterGUI:
         self.newsView.connect('key-press-event', self.gui_event_message_keypress)
         self.newsView.connect('button-release-event' , self.gui_event_message_clicked)
         self.newsView.connect('cursor-changed' , self.gui_event_message_select)
+        #~ help(self.newsView)
         self.newsView.set_rules_hint(True)
         sw.add(self.newsView)
 
@@ -568,11 +570,22 @@ class FeedHamsterGUI:
         self.log.debug('Done')
 
         #textview
+        self.summaryViewContainer = gtk.ScrolledWindow()
+        self.summaryViewContainer.set_shadow_type(gtk.SHADOW_ETCHED_IN)
+        self.summaryViewContainer.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+     
+        
+        
         self.summaryView = gtk.TextView()
         textbuffer = self.summaryView.get_buffer()
         self.summaryView.set_editable(False)
-        self.messBox.pack_end(self.summaryView,False,False,2)
-
+        self.summaryView.set_size_request(1, 22*self.summarySize)
+        
+        
+        self.summaryViewContainer.add(self.summaryView)
+        self.messBox.pack_end(self.summaryViewContainer,False,False,2)
+        self.summaryView.show()
+        
         #NewsView right click menu
         self.NewsViewMenu = gtk.Menu()
 
@@ -750,7 +763,8 @@ class FeedHamsterGUI:
         row = ts.get_selected_rows()[1][0]
 
         fid = model[row][0]
-        #~ print fid
+        if not fid:
+            return
         textbuffer = self.summaryView.get_buffer()
         summary = feedObj.message_get_meta(fid)['summary']
         while '  ' in summary:
@@ -758,22 +772,10 @@ class FeedHamsterGUI:
         summary = summary.replace('\r','\n')
         summary = summary.replace('\n\n','\n')
         summary = summary.replace('\n \n','\n')
-        ssummary = summary.split('\n')
 
-        summary = ''
-        lines = 0
-        for info in ssummary:
-            lines += 1
+        gobject.idle_add(self.summaryViewContainer.show)
+        gobject.idle_add(textbuffer.set_text,summary)
 
-            if lines >= self.summarySize:
-                summary += info
-                break
-            else:
-                summary += info + '\n'
-        if lines < self.summarySize:
-            summary += '\n'*((self.summarySize-lines)-1)
-        self.summaryView.show()
-        textbuffer.set_text(summary)
 
     def function_message_open_online(self,widget,*args):
         feedObj = self.feedhamster.feed_get(self.openFeed)
@@ -848,6 +850,9 @@ class FeedHamsterGUI:
         dialog.vbox.pack_end(entry)
         r = dialog.run()
         dialog.destroy()
+        
+        self.summarySize = 5
+        self.settings.write('GuiSettings', 'SummarySize',5)
         
     def subgui_about(self,*args):
         pass
@@ -1035,6 +1040,8 @@ class FeedHamsterGUI:
         td.start()
 
     def gui_event_feed_clicked(self, treeview, event):
+        gobject.idle_add(self.summaryViewContainer.hide)
+        
         if not ['changecolors'] in self.workerQueue.queue:
             self.workerQueue.put(['changecolors'])
 
@@ -1042,7 +1049,6 @@ class FeedHamsterGUI:
             tree_sel = treeview.get_selection()
             (tm, ti) = tree_sel.get_selected()
             fid = tm.get_value(ti, 1)
-            self.summaryView.hide()
             x = int(event.x)
             y = int(event.y)
             pthinfo = treeview.get_path_at_pos(x, y)
@@ -1077,4 +1083,6 @@ if __name__ == "__main__":
     gtk.main()
     sys.exit(0)
 
+#Bugs:
+#*** Error in `/usr/bin/python2.7': double free or corruption (fasttop): 0x00007fea2c001570 ***
 

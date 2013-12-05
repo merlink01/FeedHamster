@@ -136,13 +136,14 @@ class FeedHamster(object):
                 continue
                 
             if self.worker_job == 'shutdown':
-                self.shutdown = True
 
                 for obj in self.feedobs:
                     obj.feed_close()
                     del obj
 
                 del self.feedobs
+                
+
 
                 self.log.info('FeedHamster closed correct')
                         

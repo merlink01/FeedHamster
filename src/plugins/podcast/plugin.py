@@ -76,9 +76,13 @@ class Plugin(object):
                     break
             if not url:
                 continue
+            
+			#Bugfix: Same file on differnt servers in background
+            if '?' in  url:
+                url = url.split('?')[0]
             log.debug('Got URL: %s'%url)
-            #Read Times
 
+            #Read Times
             rtime = int(time.time())
             try:
                 utime = int(calendar.timegm(info['updated_parsed']))

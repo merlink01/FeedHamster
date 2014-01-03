@@ -25,11 +25,14 @@ if gtk.pygtk_version < (2,3,90):
 
 gobject.threads_init()
 
+#Windows Bugfix
+if os.name == "nt":
+    os.chdir(os.path.dirname(sys.argv[0]))
 
 class FeedHamsterGUI:
     def __init__(self):
         self.log = logging.getLogger('FeedHamsterGui')
-        
+
         self.log.info('Starting up FeedHamster-GTK')
         self.workerQueue = Queue.Queue()
         self.shutdown = False
@@ -45,7 +48,7 @@ class FeedHamsterGUI:
         path = sets.read('Settings', 'Feedpath')
         lang = sets.read('Settings', 'Language')
         self.lng = class_translator.Translator(language='de_DE')
-        
+
         if not path:
             question = self.lng.getText('main','messageworkingdir','Open Working Directory.')
             dialog = gtk.FileChooserDialog(question,None,gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
@@ -68,7 +71,7 @@ class FeedHamsterGUI:
             self.summarySize = int(self.summarySize)
 
         self.feedhamster = class_feedhamster.FeedHamster(self.path)
-        
+
         #~ self.feedhamster.offline_mode = True
         self._startup_gui_1_main()
         self._startup_gui_2_top()
@@ -100,7 +103,7 @@ class FeedHamsterGUI:
         button.connect("clicked", self.feedhamster.download)
         self.topBox.pack_start(button,False, False, border)
         button.show()
-        
+
         image = gtk.Image()
         image.set_from_file('images/add_feed.png')
         image.show()
@@ -110,7 +113,7 @@ class FeedHamsterGUI:
         button.connect("clicked", self.subgui_feed_add)
         self.topBox.pack_start(button,False, False, border)
         button.show()
-        
+
         image = gtk.Image()
         image.set_from_file('images/about.png')
         image.show()
@@ -120,19 +123,19 @@ class FeedHamsterGUI:
         button.connect("clicked", self.subgui_about)
         self.topBox.pack_start(button,False, False, border)
         button.show()
-        
-        
-        
+
+
+
         #~ button = gtk.Button('Import')
         #~ button.connect("clicked", self.ActionStartSync)
         #~ self.topBox.pack_start(button,False, False, 0)
         #~ button.show()
-        
+
         #~ button = gtk.Button('Export')
         #~ button.connect("clicked", self.ActionStartSync)
         #~ self.topBox.pack_start(button,False, False, 0)
         #~ button.show()
-        #~ 
+        #~
         #~ button = gtk.Button('Settings')
         #~ button.connect("clicked", self.ActionStartSync)
         #~ self.topBox.pack_start(button,False, False, 0)
@@ -213,12 +216,12 @@ class FeedHamsterGUI:
         self.bottonBox = gtk.HBox(False, 0)
         self.mainBox.pack_end(self.bottonBox, False, False, 2)
         self.bottonBox.show()
-        
+
     def function_shutdown(self,*args):
         self.shutdown = True
         self.feedhamster.feedhamster_shutdown()
         gtk.main_quit()
-    
+
     def push_to_feedhamster_status(self):
         if self.feedhamster.worker_job:
             gobject.idle_add(self.progress_bar.show)
@@ -229,12 +232,12 @@ class FeedHamsterGUI:
                 gobject.idle_add(self.progress_bar.update,percent)
         else:
             gobject.idle_add(self.progress_bar.hide)
-    
+
     def _worker_thread(self):
         while True:
             if self.shutdown:
                 break
-                
+
             try:
                 job = self.workerQueue.get(block=True,timeout=0.2)
             except:
@@ -245,17 +248,17 @@ class FeedHamsterGUI:
                 self.log.info('Updating Gui Colors')
                 if self.shutdown:
                     return
-                    
+
                 model = self.feedView.get_model()
                 if not model:
                     continue
-                    
+
                 treemodelrowiter = iter(model)
                 for folder in treemodelrowiter:
-                    
+
                     if self.shutdown:
                         return
-                        
+
                     childiter = folder.iterchildren()
                     changed = False
                     for child in childiter:
@@ -276,7 +279,7 @@ class FeedHamsterGUI:
                         folder[2] = '#901000'
                     else:
                         folder[2] = None
-                        
+
             if job[0] == 'delete_message':
                 self.log.debug('Deleting Message:%s/%s'%(job[1],job[2]))
                 feed = self.feedhamster.feed_get(job[1])
@@ -444,7 +447,7 @@ class FeedHamsterGUI:
             model = treeview.get_model()
             if len(model) == 0:
                 return
-                
+
             if len(model) == 1:
                 ts = treeview.get_selection()
                 row = ts.get_selected_rows()[1][0]
@@ -512,9 +515,9 @@ class FeedHamsterGUI:
 
     def _startup_gui_5_bottom(self):
         #Create Button Statusbar
-        self.spinner = gtk.Spinner()        
-        self.bottonBox.pack_start(self.spinner, False, True, 5)       
-        
+        self.spinner = gtk.Spinner()
+        self.bottonBox.pack_start(self.spinner, False, True, 5)
+
         self.progress_bar = gtk.ProgressBar()
         self.progress_bar.set_activity_step(1)
         self.bottonBox.pack_end(self.progress_bar, False, True, 5)
@@ -573,19 +576,19 @@ class FeedHamsterGUI:
         self.summaryViewContainer = gtk.ScrolledWindow()
         self.summaryViewContainer.set_shadow_type(gtk.SHADOW_ETCHED_IN)
         self.summaryViewContainer.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-     
-        
-        
+
+
+
         self.summaryView = gtk.TextView()
         textbuffer = self.summaryView.get_buffer()
         self.summaryView.set_editable(False)
         self.summaryView.set_size_request(1, 22*self.summarySize)
-        
-        
+
+
         self.summaryViewContainer.add(self.summaryView)
         self.messBox.pack_end(self.summaryViewContainer,False,False,2)
         self.summaryView.show()
-        
+
         #NewsView right click menu
         self.NewsViewMenu = gtk.Menu()
 
@@ -618,7 +621,7 @@ class FeedHamsterGUI:
         filechooserdialog = gtk.FileChooserDialog("Save File", None,
          gtk.FILE_CHOOSER_ACTION_SAVE, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
          gtk.STOCK_OK, gtk.RESPONSE_OK))
-        
+
         mime = feedObj.message_get_meta(nid)['mimetype']
         extension = feedObj.mimetypes.get_extension(mime)
 
@@ -628,7 +631,7 @@ class FeedHamsterGUI:
         response = filechooserdialog.run()
         if response == gtk.RESPONSE_OK:
             path = filechooserdialog.get_filename()
-            
+
             if os.path.exists(path):
                 ##########Gui
                 d = gtk.MessageDialog(filechooserdialog,
@@ -787,7 +790,7 @@ class FeedHamsterGUI:
 
 
     def function_message_open(self, widget,*args):
-        
+
         feedObj = self.feedhamster.feed_get(self.openFeed)
         tree_sel = self.newsView.get_selection()
         (tm, ti) = tree_sel.get_selected()
@@ -850,10 +853,10 @@ class FeedHamsterGUI:
         dialog.vbox.pack_end(entry)
         r = dialog.run()
         dialog.destroy()
-        
+
         self.summarySize = 5
         self.settings.write('GuiSettings', 'SummarySize',5)
-        
+
     def subgui_about(self,*args):
         pass
 
@@ -913,7 +916,7 @@ class FeedHamsterGUI:
             entry.connect('activate', lambda _: d.response(gtk.RESPONSE_OK))
             d.set_default_response(gtk.RESPONSE_OK)
             r = d.run()
-            
+
             url = entry.get_text().decode('utf8')
             model = combo.get_model()
             index = combo.get_active()
@@ -1041,7 +1044,7 @@ class FeedHamsterGUI:
 
     def gui_event_feed_clicked(self, treeview, event):
         gobject.idle_add(self.summaryViewContainer.hide)
-        
+
         if not ['changecolors'] in self.workerQueue.queue:
             self.workerQueue.put(['changecolors'])
 
@@ -1070,7 +1073,7 @@ class FeedHamsterGUI:
 if __name__ == "__main__":
 
     thisapp = singleton.singleinstance()
-    
+
     logger = logging.getLogger()
     fmt_string = "[%(levelname)-7s]%(asctime)s.%(msecs)-3d\
     %(module)s[%(lineno)-3d]/%(funcName)-10s  %(message)-8s "

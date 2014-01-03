@@ -349,8 +349,7 @@ class FeedHamsterGUI:
         newscount = len(news)
         for message in news:
             counter += 1
-
-            self.push_to_statusbar('Loading: %s from %s'%(counter,newscount))
+            self.statusBar.push(0,'Loading: %s from %s'%(counter,newscount))
 
             tree_sel = self.feedView.get_selection()
             if not tree_sel:
@@ -392,7 +391,7 @@ class FeedHamsterGUI:
         gobject.idle_add(self.newsView.set_model,store)
         sbString = '%s\tType:%s\t\tSize:%s\tShowing:%s\t| Feeds:%s\tUnread:%s\tFavorites:%s\tNews:%s'%(name,pluginname,size,showing,feedscount,unread,favorites,newsCount)
         gobject.idle_add(self.mainWindow.set_title,"feedhamster (%s)"%name)
-        self.push_to_statusbar(sbString)
+        self.statusBar.push(0,sbString)
         gobject.idle_add(self.spinner.stop)
         gobject.idle_add(self.spinner.hide)
         if not ['changecolors'] in self.workerQueue.queue:

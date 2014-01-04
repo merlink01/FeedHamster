@@ -314,11 +314,11 @@ class FeedHamsterGUI:
     def build_message_view(self, fid, keyword=None):
 
         self.log.info('Build News View for: %s'%fid)
-        
+
         gobject.idle_add(self.update_bar.show)
         gobject.idle_add(self.update_bar.update,0)
         gobject.idle_add(self.update_bar.set_text,'Loading...')
-        
+
         feedObj = self.feedhamster.feed_get(fid)
         newMessages = feedObj.feed_get_newest()
 
@@ -1002,29 +1002,12 @@ class FeedHamsterGUI:
         if r == gtk.RESPONSE_OK:
             self.push_to_statusbar('Deleting: %s'%fid)
 
-
-            answer = self.feedhamster.feed_delete(fid)
-            if not answer == True:
-
-                textparts = answer.split('\n')
-
-
-                dsub = gtk.MessageDialog(d,
-                    gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                    gtk.MESSAGE_INFO,
-                    gtk.BUTTONS_OK,answer)
-
-                dsub.set_title('Error')
-
-                dsub.set_default_response(gtk.BUTTONS_OK)
-                r = dsub.run()
-                dsub.destroy()
-                return
-
+            self.feedhamster.feed_delete(fid)
             time.sleep(1)
+
             self.build_feed_view()
             self.push_to_statusbar('Ready')
-            self.build_feed_view()
+
 
     def gui_event_search_activated(self, widget):
         keyword = widget.get_text()

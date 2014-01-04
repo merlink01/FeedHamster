@@ -35,7 +35,7 @@ class FeedHamster(object):
         self.log = logging.getLogger('feedhamster')
         self.offline_mode = False
         self.shutdown = False
-        
+
         self.settings = {}
         self.settings['version'] = __version__
         self.settings['workingdir'] = workingdir
@@ -45,11 +45,11 @@ class FeedHamster(object):
         self.settings['download_timeout'] = 10
         self.settings['download_pulse'] = download_pulse
         self.settings['cleanup_pulse'] = cleanup_pulse
-        
+
         self.log.info('FeedHamster is starting up...')
         for entry in self.settings:
             self.log.info('%s:\t %s'%(entry.upper(),self.settings[entry]))
-        
+
 
         # Test and Create Pathes
 
@@ -63,7 +63,7 @@ class FeedHamster(object):
                 self.log.error(tmp.read())
                 tmp.close()
                 sys.exit(1)
-        
+
         #Temppath
         if not os.path.isdir(self.settings['tempdir']):
             try:
@@ -75,7 +75,7 @@ class FeedHamster(object):
                 self.log.error(tmp.read())
                 tmp.close()
                 sys.exit(1)
-                
+
         #Plugin
         if not os.path.isdir(self.settings['plugindir']):
             try:
@@ -90,7 +90,7 @@ class FeedHamster(object):
 
         self.feedloader = class_feedloader.FeedLoader(self.settings)
         self.feedobs = self.feedloader.get_feeds()
-        
+
         td = threading.Thread(target=self._worker_thread)
         td.setName('worker_thread')
         td.start()
@@ -99,23 +99,23 @@ class FeedHamster(object):
 
 
     def _worker_thread(self):
-        
+
         self.log.info('Starting up worker Thread')
 
         self.worker_queue = Queue.Queue()
         self.worker_status = None
         self.worker_job = None
-        self.download_time = 0        
+        self.download_time = 0
         self.cleanup_time = time.time()
         time.sleep(10)
 
         while True:
-            
+
             try:
                 self.worker_job = self.worker_queue.get(block=True,timeout=0.2)
                 self.log.info('Got Job: %s'%self.worker_job.upper())
             except:
-                
+
                 if self.settings['download_pulse'] > 0:
                     if self.download_time + self.settings['download_pulse'] * 60 < int(time.time()):
                         if not 'download' in self.worker_queue.queue:
@@ -123,8 +123,8 @@ class FeedHamster(object):
                                 self.log.debug('AutoDownload')
                                 self.worker_queue.put('download')
                                 self.download_time = time.time()
-                    
-                
+
+
                 if self.settings['cleanup_pulse'] > 0:
                     if self.cleanup_time + self.settings['cleanup_pulse'] * 60 < int(time.time()):
                         if not 'download' in self.worker_queue.queue:
@@ -132,9 +132,9 @@ class FeedHamster(object):
                                 self.log.debug('AutoCleanup')
                                 self.worker_queue.put('cleanup')
                                 self.cleanup_time = time.time()
-                        
+
                 continue
-                
+
             if self.worker_job == 'shutdown':
 
                 for obj in self.feedobs:
@@ -142,11 +142,11 @@ class FeedHamster(object):
                     del obj
 
                 del self.feedobs
-                
+
 
 
                 self.log.info('FeedHamster closed correct')
-                        
+
                 return
 
             #Data Download
@@ -159,7 +159,7 @@ class FeedHamster(object):
                 count = len(self.feedobs)
                 counter = 0
                 count_of_jobs = len(self.feedobs)
-                
+
                 self.worker_status = 0
                 for feed in self.feedobs:
 
@@ -169,24 +169,24 @@ class FeedHamster(object):
                     self.worker_status = int(100 * float(counter) / float(count))
                     counter += 1
                     self.log.info("""Download: %2d Percent"""%self.worker_status)
-                    
+
                     if 'shutdown' in self.worker_queue.queue:
                         self.log.info('Ending Downloads for shutdown')
                         break
-                    
+
                     self.log.debug('Download: %s' % feed._read_setting('id'))
-                    
+
                     td = threading.Thread(target=feed.feed_download)
                     td.setName('download_thread')
                     td.start()
                 else:
                     #All Downloads are started - Waiting for them to end
                     while self._count_threads('download_thread') != 0:
-                        
+
                         if self.shutdown:
                             self.log.info('Ending Downloads for shutdown')
                             break
-                            
+
                         self.log.debug('Waiting to finish sync: Running %s'%self._count_threads('retrieve_thread'))
                         time.sleep(1)
                     else:
@@ -196,31 +196,31 @@ class FeedHamster(object):
 
 
             if self.worker_job == 'cleanup':
-            
+
                 count = len(self.feedobs)
                 counter = 0
                 self.compact_status = 0
                 for feed in self.feedobs:
-                    
+
                     self.log.info('Cleanup: %s'%feed.feed_id)
-                    
+
                     if 'shutdown' in self.worker_queue.queue:
                         self.log.info('Ending Cleanups for shutdown')
                         break
-                    
+
                     self.worker_status = int(100 * float(counter) / float(count))
                     counter += 1
                     self.log.info("""Cleanup: %2d Percent"""%self.worker_status)
-                    
+
                     feed.feed_cleanup()
                 else:
                     self.log.info('Cleanup Done')
                     self.worker_status = None
                     self.worker_job = None
-                
-        
 
-                
+
+
+
     #~ def search(self, keyword, unread=False, favorites=False, startTime=-1, endTime=-1):
         #~ found = []
         #~ for ob in self.feedobs:
@@ -230,7 +230,7 @@ class FeedHamster(object):
             #~ for info in feeds:
                 #~ found.append(fid,info)
 
-        
+
     def _count_threads(self,name):
 
         """This function counts running Threads"""
@@ -249,7 +249,7 @@ class FeedHamster(object):
             fid = ob._read_setting('id')
             url = ob._read_setting('url')
             name = ob._read_setting('name')
-            version = ob._read_setting('version')          
+            version = ob._read_setting('version')
             genre = ob._read_setting('genre')
             out[fid] = {'url': url, 'name': name, 'version': version, 'genre':genre}
         return out
@@ -261,20 +261,20 @@ class FeedHamster(object):
 
     def plugins_list(self):
         return self.feedloader.pluginparser.ListPlugins()
-        
+
     def feed_create(self, url, plugin='rss'):
 
         """ Add a new Feed """
 
         self.log.debug('Adding: %s'%url)
-        
+
         self.log.debug('Check awareness')
         for obj in self.feedobs:
             if obj.url == url:
                 self.log.warning('Feed already inside: %s' % url)
                 return
         self.log.debug('Done')
-        
+
         return self.feedloader.add_new_feed(url,plugin)
 
 
@@ -295,7 +295,7 @@ class FeedHamster(object):
         if not 'download' in self.worker_queue.queue:
             if not self.worker_job == 'download':
                 self.worker_queue.put('download')
-        
+
 
     def feedhamster_shutdown(self,*args):
         self.shutdown = True

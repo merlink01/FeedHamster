@@ -27,7 +27,8 @@ gobject.threads_init()
 
 #Windows Bugfix
 if os.name == "nt":
-    os.chdir(os.path.dirname(sys.argv[0]))
+    if '\\' in sys.argv[0]:
+        os.chdir(os.path.dirname(sys.argv[0]))
 
 class FeedHamsterGUI:
     def __init__(self):
@@ -35,6 +36,7 @@ class FeedHamsterGUI:
 
         self.log.info('Starting up FeedHamster-GTK')
         self.workerQueue = Queue.Queue()
+        self.worker_job = None
         self.shutdown = False
         self.stopFeedViewColorChange = False
         tempdir = tempfile.gettempdir()
@@ -84,7 +86,7 @@ class FeedHamsterGUI:
         self.mainWindow.show()
 
         self._create_named_thread('Worker',target=self._worker_thread)
-        self.workerQueue.put(['changecolors'])
+        self.worker_add_job('changecolors')
         self.settings = sets
 
     def push_to_statusbar(self,message):
@@ -114,17 +116,15 @@ class FeedHamsterGUI:
         self.topBox.pack_start(button,False, False, border)
         button.show()
 
-        image = gtk.Image()
-        image.set_from_file('images/about.png')
-        image.show()
-        button = gtk.Button()
-        button.set_size_request(40, height)
-        button.add(image)
-        button.connect("clicked", self.subgui_about)
-        self.topBox.pack_start(button,False, False, border)
-        button.show()
-
-
+        #~ image = gtk.Image()
+        #~ image.set_from_file('images/about.png')
+        #~ image.show()
+        #~ button = gtk.Button()
+        #~ button.set_size_request(40, height)
+        #~ button.add(image)
+        #~ button.connect("clicked", self.subgui_about)
+        #~ self.topBox.pack_start(button,False, False, border)
+        #~ button.show()
 
         #~ button = gtk.Button('Import')
         #~ button.connect("clicked", self.ActionStartSync)
@@ -234,23 +234,25 @@ class FeedHamsterGUI:
             gobject.idle_add(self.progress_bar.hide)
 
     def _worker_thread(self):
+
         while True:
             if self.shutdown:
                 break
 
             try:
-                job = self.workerQueue.get(block=True,timeout=0.2)
+                self.worker_job = self.workerQueue.get(block=True,timeout=0.2)
             except:
                 self.push_to_feedhamster_status()
                 continue
 
-            if job[0] == 'changecolors':
+            if self.worker_job[0] == 'changecolors':
                 self.log.info('Updating Gui Colors')
                 if self.shutdown:
                     return
 
                 model = self.feedView.get_model()
                 if not model:
+                    self.worker_job = None
                     continue
 
                 treemodelrowiter = iter(model)
@@ -280,10 +282,12 @@ class FeedHamsterGUI:
                     else:
                         folder[2] = None
 
-            if job[0] == 'delete_message':
-                self.log.debug('Deleting Message:%s/%s'%(job[1],job[2]))
-                feed = self.feedhamster.feed_get(job[1])
-                feed.message_delete(job[2])
+            if self.worker_job[0] == 'delete_message':
+                self.log.debug('Deleting Message:%s/%s'%(self.worker_job[1],self.worker_job[2]))
+                feed = self.feedhamster.feed_get(self.worker_job[1])
+                feed.message_delete(self.worker_job[2])
+
+            self.worker_job = None
 
     def build_feed_view(self):
         feedList = []
@@ -308,9 +312,6 @@ class FeedHamsterGUI:
 
 
     def build_message_view(self, fid, keyword=None):
-
-        gobject.idle_add(self.spinner.show)
-        gobject.idle_add(self.spinner.start)
 
         self.log.info('Build News View for: %s'%fid)
         feedObj = self.feedhamster.feed_get(fid)
@@ -347,9 +348,16 @@ class FeedHamsterGUI:
         self.log.debug('Got %s Messages'%len(news))
         counter = 0
         newscount = len(news)
+
+        gobject.idle_add(self.update_bar.show)
         for message in news:
             counter += 1
-            self.statusBar.push(0,'Loading: %s from %s'%(counter,newscount))
+
+            text = 'Loading: %s from %s'%(counter,newscount)
+            gobject.idle_add(self.update_bar.set_text,text)
+
+            percent = (100 * float(counter)/float(newscount))/100
+            gobject.idle_add(self.update_bar.update,percent)
 
             tree_sel = self.feedView.get_selection()
             if not tree_sel:
@@ -380,6 +388,7 @@ class FeedHamsterGUI:
             else:
                 store.append([message, bool(info['read']), bool(info['favorite']), stime, title, None,None])
 
+        gobject.idle_add(self.update_bar.hide)
         tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
         fid = tm.get_value(ti, 1)
@@ -392,10 +401,27 @@ class FeedHamsterGUI:
         sbString = '%s\tType:%s\t\tSize:%s\tShowing:%s\t| Feeds:%s\tUnread:%s\tFavorites:%s\tNews:%s'%(name,pluginname,size,showing,feedscount,unread,favorites,newsCount)
         gobject.idle_add(self.mainWindow.set_title,"feedhamster (%s)"%name)
         self.statusBar.push(0,sbString)
-        gobject.idle_add(self.spinner.stop)
-        gobject.idle_add(self.spinner.hide)
-        if not ['changecolors'] in self.workerQueue.queue:
-            self.workerQueue.put(['changecolors'])
+
+
+        self.worker_add_job('changecolors')
+
+    def worker_add_job(self,job,args=None):
+        if args:
+            assert type(args) == list
+
+        if args:
+            job = [job,args]
+        else:
+            job = [job]
+
+        if self.worker_job == job:
+            return
+
+        if job in self.workerQueue.queue:
+            return
+
+        self.workerQueue.put(job)
+
 
     def gui_event_tray_clicked(self):
         pass
@@ -514,12 +540,14 @@ class FeedHamsterGUI:
 
     def _startup_gui_5_bottom(self):
         #Create Button Statusbar
-        self.spinner = gtk.Spinner()
-        self.bottonBox.pack_start(self.spinner, False, True, 5)
+        self.update_bar = gtk.ProgressBar()
+        self.update_bar.set_activity_step(1)
+        self.bottonBox.pack_start(self.update_bar, False, True, 5)
 
         self.progress_bar = gtk.ProgressBar()
         self.progress_bar.set_activity_step(1)
         self.bottonBox.pack_end(self.progress_bar, False, True, 5)
+
         self.statusBar = gtk.Statusbar()
         self.bottonBox.pack_end(self.statusBar, True, True, 0)
         self.statusBar.push(0, 'Ready')
@@ -999,7 +1027,7 @@ class FeedHamsterGUI:
         tree_sel = tree_sel = self.feedView.get_selection()
         (tm, ti) = tree_sel.get_selected()
         fid = tm.get_value(ti, 1)
-
+        self.statusBar.push(0,'')
         self._create_named_thread('Searching...',target=self.build_message_view, args=(fid,keyword))
 
     def gui_event_combo_changed(self, widget, ctype):
@@ -1032,6 +1060,7 @@ class FeedHamsterGUI:
             self.feedOpenDates = {}
             self.openFeed = fid
             self.log.debug('Selected Feed: %s'%fid)
+            self.statusBar.push(0,'')
             self._create_named_thread('MessageBuild',target=self.build_message_view, args=(fid,))
             self.feedOpenDates[fid] = [int(time.time()),tm,ti]
             self.stopFeedViewColorChange = False
@@ -1044,8 +1073,7 @@ class FeedHamsterGUI:
     def gui_event_feed_clicked(self, treeview, event):
         gobject.idle_add(self.summaryViewContainer.hide)
 
-        if not ['changecolors'] in self.workerQueue.queue:
-            self.workerQueue.put(['changecolors'])
+        self.worker_add_job('changecolors')
 
         if event.button == 3: # right click
             tree_sel = treeview.get_selection()
@@ -1084,7 +1112,4 @@ if __name__ == "__main__":
     FeedHamsterGUI()
     gtk.main()
     sys.exit(0)
-
-#Bugs:
-#*** Error in `/usr/bin/python2.7': double free or corruption (fasttop): 0x00007fea2c001570 ***
 

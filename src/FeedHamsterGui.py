@@ -271,6 +271,9 @@ class FeedHamsterGUI:
 
                         feedObj = self.feedhamster.feed_get(child[1])
 
+                        if not feedObj:
+                            continue
+
                         if feedObj.feed_count('newest') > 0:
                             changed = True
                             child[2] = '#901000'
@@ -1006,6 +1009,7 @@ class FeedHamsterGUI:
             time.sleep(1)
 
             self.build_feed_view()
+            gobject.idle_add(self.newsView.set_model,None)
             self.push_to_statusbar('Ready')
 
 

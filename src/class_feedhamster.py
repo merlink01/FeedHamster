@@ -15,6 +15,7 @@ __version__ = 0.03
 import os
 import sys
 import time
+import shutil
 import logging
 import traceback
 import threading
@@ -22,7 +23,6 @@ import StringIO
 import Queue
 import class_feedloader
 import class_feed
-
 
 class FeedHamster(object):
 
@@ -65,6 +65,7 @@ class FeedHamster(object):
                 sys.exit(1)
 
         #Temppath
+        shutil.rmtree(self.settings['tempdir'],ignore_errors=True)
         if not os.path.isdir(self.settings['tempdir']):
             try:
                 os.makedirs(self.settings['tempdir'])
@@ -300,5 +301,6 @@ class FeedHamster(object):
     def feedhamster_shutdown(self,*args):
         self.shutdown = True
         self.worker_queue.put('shutdown')
+        shutil.rmtree(self.settings['tempdir'],ignore_errors=True)
 
 

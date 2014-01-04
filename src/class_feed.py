@@ -9,9 +9,11 @@ html2text.IGNORE_IMAGES = True
 import os
 import sys
 import time
+import uuid
 import socket
 import urlparse
 import urllib
+import subprocess
 import hashlib
 import threading
 import logging
@@ -43,7 +45,7 @@ class Feed:
         socket.setdefaulttimeout(self.settings['download_timeout'])
         self.mimetypes = class_mimetypes.MimeTypesWrapper()
 
-        self.tempfiles = []
+        self.tempdir = settings['tempdir']
         self.settingsCache = {}
         self.status = None
         self.shutdown = False
@@ -506,24 +508,28 @@ class Feed:
             mime = self.message_get_meta(muuid)['mimetype']
             extension = self.mimetypes.get_extension(mime)
 
-            tmp = tempfile.NamedTemporaryFile(suffix=extension[0])
-            self.tempfiles.append(tmp)
+            name = str(uuid.uuid4()) + extension[0]
+            path = os.path.join(self.tempdir,name)
+            tempfile = open(path,'w')
 
             if extension[0] == '.html':
                 meta = self.message_get_meta(muuid)
                 data = self.message_get_data(muuid).encode(meta['encoding'])
-                tmp.write(data)
-                webbrowser.open_new_tab(tmp.name)
+                tempfile.write(data)
+                tempfile.close()
+                webbrowser.open_new_tab(path)
             else:
 
-                import subprocess
                 data = self.message_get_data(muuid)
-                tmp.write(data)
-                #~ try:
-                    #~ data = self.plugin.decryptData(data)
-                #~ except:
-                    #~ pass
-                subprocess.Popen(['vlc',tmp.name])
+                tempfile.write(data)
+                tempfile.close()
+                if sys.platform.startswith('darwin'):
+                    subprocess.call(('open', path))
+                elif os.name == 'nt':
+                    os.startfile(path)
+                elif os.name == 'posix':
+                    subprocess.call(('xdg-open', path))
+
 
         self.message_set_meta(muuid, 'read', True)
 
@@ -634,15 +640,6 @@ class Feed:
         while self.db.getStatus():
             time.sleep(0.1)
 
-        for entry in self.tempfiles:
-            try:
-                entry.close()
-            except:
-                tmp = StringIO.StringIO()
-                traceback.print_exc(file=tmp)
-                tmp.seek(0, 0)
-                self.log.debug(tmp.read())
-                tmp.close()
 
     def feed_delete(self):
         self.feed_close()

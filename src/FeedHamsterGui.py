@@ -314,6 +314,11 @@ class FeedHamsterGUI:
     def build_message_view(self, fid, keyword=None):
 
         self.log.info('Build News View for: %s'%fid)
+        
+        gobject.idle_add(self.update_bar.show)
+        gobject.idle_add(self.update_bar.update,0)
+        gobject.idle_add(self.update_bar.set_text,'Loading...')
+        
         feedObj = self.feedhamster.feed_get(fid)
         newMessages = feedObj.feed_get_newest()
 
@@ -349,7 +354,6 @@ class FeedHamsterGUI:
         counter = 0
         newscount = len(news)
 
-        gobject.idle_add(self.update_bar.show)
         for message in news:
             counter += 1
 
@@ -929,9 +933,9 @@ class FeedHamsterGUI:
             combo = gtk.combo_box_new_text()
 
             for entry in self.feedhamster.plugins_list():
+                print self.feedhamster.plugins_list()
                 combo.append_text(entry)
 
-            #combo.connect('changed', self.event_combo_feedtype)
             combo.set_active(0)
             combo.show()
 

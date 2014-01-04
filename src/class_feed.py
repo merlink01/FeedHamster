@@ -510,7 +510,7 @@ class Feed:
 
             name = str(uuid.uuid4()) + extension[0]
             path = os.path.join(self.tempdir,name)
-            tempfile = open(path,'w')
+            tempfile = open(path,'wb')
 
             if extension[0] == '.html':
                 meta = self.message_get_meta(muuid)

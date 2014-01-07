@@ -548,6 +548,9 @@ class Feed:
         sql = 'SELECT uuid FROM feeds WHERE removed=0 AND recieved>? ORDER BY updated DESC'
         answer = self.db.executeCommand('get',sql,(last_time,))
 
+        if answer == None:
+            return []
+
         self.log.debug('Got: %s '%len(answer))
         out = []
         counter = 0

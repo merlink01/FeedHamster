@@ -723,6 +723,8 @@ class FeedHamsterGUI:
 
         text += 'Last Synced: \t\t %s\n'%stime
         text += 'Last Compacted: \t %s\n'%ctime
+        text += '\n\nPath: \t %s\n'%feedObj.db_path
+
 
 
 

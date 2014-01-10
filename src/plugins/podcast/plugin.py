@@ -1,4 +1,3 @@
-import feedparser
 import logging
 import StringIO
 import traceback
@@ -8,8 +7,7 @@ import hashlib
 import urllib
 import base64
 import os
-import tempfile
-import subprocess
+import feedparser
 log = logging.getLogger('podcast_plugin')
 
 __author__ = 'merlink'
@@ -17,14 +15,17 @@ __program__ = 'feedhamster'
 __pluginname__ = 'podcast'
 __version__ = 0.01
 __description__ = 'A Podcast Plugin for FeedHamster'
+__licences__ = {'RSS-Plugin':'GPL','Feedparser':feedparser.__license__}
 
 
 class Plugin(object):
-    
-    def __init__(self,url,user=None,passwd=None):
+
+    def __init__(self,url,tempdir=None,user=None,passwd=None):
 
         self.type = __pluginname__
-        log.debug('Init Podcast Reader (v%s)'%__version__)
+        log.debug('Init Plugin (%s Version:%s)'%(self.type,__version__))
+
+        self.tempdir = tempdir
         self.newsdict = {}
         self.count = None
         self.encoding = None
@@ -32,7 +33,7 @@ class Plugin(object):
         self.imageextension = None
         self.uuidlist = []
         self.url = url
-        self.tempfiles = []
+
 
     def syncMeta(self):
 
@@ -42,10 +43,10 @@ class Plugin(object):
                 return False
         except:
             return False
-        
+
         if not self.encoding:
             self.encoding = feeddata.encoding
-            
+
         self.uuidlist = []
         self.count = len(feeddata.entries)
         if not self.image:
@@ -62,7 +63,7 @@ class Plugin(object):
                 log.debug('Cant get a Picture for this Feed')
                 self.image = -1
                 self.imageextension = -1
-                
+
         log.debug('Got %s News'%len(feeddata.entries))
 
         for info in feeddata.entries:
@@ -76,8 +77,8 @@ class Plugin(object):
                     break
             if not url:
                 continue
-            
-			#Bugfix: Same file on differnt servers in background
+
+            #Bugfix: Same file on differnt servers in background
             if '?' in  url:
                 url = url.split('?')[0]
             log.debug('Got URL: %s'%url)
@@ -92,10 +93,10 @@ class Plugin(object):
                 ctime = int(calendar.timegm(info['published_parsed']))
             except:
                 ctime = -1
-                
+
             newsuuid = str(hashlib.md5('%s%s%s' % (url, ctime, utime)).hexdigest())
             self.uuidlist.append(newsuuid)
-            
+
             if newsuuid in self.newsdict:
                 continue
 
@@ -120,15 +121,15 @@ class Plugin(object):
     def getList(self):
         log.debug('Getlist: Len=%s'%len(self.uuidlist))
         return self.uuidlist
-        
+
     def getMeta(self,newsuuid):
         return self.newsdict[newsuuid]
-        
+
     def getData(self,newsuuid):
         log.debug('Getdata: %s'%newsuuid)
         newsmeta = self.newsdict[newsuuid]
         url = newsmeta['url']
-        
+
         feed_data = None
         data = None
         log.debug('open %s'%url)
@@ -156,6 +157,6 @@ class Plugin(object):
     def decryptData(self,data):
         log.info('Decrypting Podcast')
         return base64.b64decode(data)
-        
+
 
 

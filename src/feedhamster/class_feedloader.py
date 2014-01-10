@@ -21,40 +21,40 @@ class FeedLoader:
         self.log.debug('Starting Feedloader')
         self.feedobs = []
         self._load_feeds()
-        
+
     def _check_feed_db(self):
         self.log.debug('Check Feed: %s'%self.db.path)
-        
+
         if  self.db.executeCommand('list_tables') != [(u'settings',), (u'feeds',)]:
             return False
-            
+
         if self.db.executeCommand('list_columns','settings') != [u'setting', u'value']:
             return False
-            
+
         feeds_columns_list = self.db.executeCommand('list_columns','feeds')
         for entry in COLUMNS_TO_CHECK:
             self.log.debug('Testing: %s'%entry)
             if not entry in feeds_columns_list:
                 self.log.warning('Column not present: %s'%entry)
                 return False
-        
+
         for entry in SETTINGS_TO_CHECK:
             self.log.debug('Testing: %s'%entry)
             if self._read_setting(entry) == None:
                 self.log.warning('Setting not present: %s'%entry)
                 return False
-                
+
         return True
 
-        
+
     def get_feeds(self):
         return self.feedobs
-    
+
     def reload_feeds(self):
         self._load_feeds()
-        
+
     def add_new_feed(self,url,plugin):
-        
+
         module = self.pluginparser.LoadPlugin(plugin)
         module = module.Plugin(url)
         feed = class_feed.Feed(module, self.settings)
@@ -63,7 +63,7 @@ class FeedLoader:
             return feed.feed_id
         else:
             return
-        
+
 
     def _read_setting(self, name):
 
@@ -74,16 +74,16 @@ class FeedLoader:
         return answer
 
     def _load_feeds(self):
-        
+
         self.log.debug('Load Plugins')
         self.pluginparser = class_pluginparser.PluginParser('feedhamster',self.settings['plugindir'],'.hpi')
         modulelist = self.pluginparser.ListPlugins()
-        
+
         self.log.debug('Loading DBs')
         filelist = os.listdir(self.settings['workingdir'])
-        
+
         for entry in filelist:
-            #~ self.log.info('Loading: %s' % entry)
+            self.log.debug('Loading: %s' % entry)
             if os.path.splitext(entry)[1] == '.hdb':
                 full_path = os.path.join(self.settings['workingdir'], entry)
                 self.log.info('Load Feed: %s'%entry)
@@ -93,7 +93,7 @@ class FeedLoader:
                     self.log.warning('DB Check Error: %s'%entry)
                     self.db.executeCommand('exit')
                     continue
-                
+
                 try:
                     url = self._read_setting('url')
                     plugin = self._read_setting('plugin')
@@ -102,11 +102,11 @@ class FeedLoader:
                     self.log.error('Got defect Database: %s'%full_path)
                     self.db.executeCommand('exit')
                     continue
-                
+
                 if modulelist.has_key(plugin):
-                    
+
                     module = self.pluginparser.LoadPlugin(plugin)
-                    module = module.Plugin(url)
+                    module = module.Plugin(url, self.settings['tempdir'])
                     feed = class_feed.Feed(module, self.settings)
                     self.feedobs.append(feed)
                     assert plugin == feed.plugin.type
@@ -127,11 +127,11 @@ class FeedLoader:
                 self.log.info('Done: New Version:%s' % feedversion)
 
     def _feeds_update(self, version, feed):
-        
+
         if float(version) == float(0.8) or float(version) == float(0.9):
             feed._save_setting('version', 0.01, True)
             return 0.01
-            
+
         if float(version) == float(0.01):
             feed._save_setting('version', 0.02, True)
             feed.db.add_row('feeds','extension','TEXT')
@@ -155,7 +155,7 @@ class FeedLoader:
 #~ handler.setFormatter(logging.Formatter(fmt_string, "%H:%M:%S"))
 #~ FHLOGGER.addHandler(handler)
 #~ FHLOGGER.setLevel(logging.INFO)
-#~ 
+#~
 #~ wd = '/home/merlink/feeds'
 #~ pd = '/home/merlink/Workspace/FeedHamster/src/plugins'
 #~ fl = FeedLoader(wd,pd,0.1)

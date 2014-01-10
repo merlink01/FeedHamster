@@ -13,7 +13,7 @@ setup_file_path = os.path.abspath('setup.py')
 
 
 
-script_path = 'FeedHamsterGui.py'
+script_path = 'FeedHamsterGTK.py'
 
 print("""Create Setup File: "%s" """%setup_file_path)
 print("""Compile Folder: "%s" \n"""%folder_path)

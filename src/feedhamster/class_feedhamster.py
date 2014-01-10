@@ -6,9 +6,9 @@ Feeds and Metadata are managed in DBs
 """
 
 __author__ = "Merlink"
+__website__ = "https://github.com/merlink01/FeedHamster"
 __email__ = "Bitmessage:BM-BbmSsPKPa1azaBaMdsSRaDPJxvf9CrYu"
-__licence__ = "GPL"
-__copyright__ = "Copyright C2013, Merlin Kessler"
+__copyright__ = "Copyright C2013,C2014, Merlin Kessler"
 __thanks__ = ["MIK:www.mik-digital.de"]
 __version__ = 0.03
 
@@ -20,7 +20,9 @@ import logging
 import traceback
 import threading
 import StringIO
+import sqlite3
 import Queue
+from helper_export import feed_export
 import class_feedloader
 import class_feed
 
@@ -106,9 +108,8 @@ class FeedHamster(object):
         self.worker_queue = Queue.Queue()
         self.worker_status = None
         self.worker_job = None
-        self.download_time = 0
+        self.download_time = time.time()
         self.cleanup_time = time.time()
-        time.sleep(10)
 
         while True:
 
@@ -278,7 +279,6 @@ class FeedHamster(object):
 
         return self.feedloader.add_new_feed(url,plugin)
 
-
     def feed_delete(self, uuid):
         counter = 0
         for obj in self.feedobs:
@@ -291,6 +291,39 @@ class FeedHamster(object):
 
         path = os.path.join(self.settings['workingdir'], '%s.hdb' % uuid)
         os.remove(path)
+
+    def feed_export(self,fid,export_path):
+        try:
+            counter = -1
+            for obj in self.feedobs:
+                counter += 1
+                if obj.feed_id == fid:
+                    del self.feedobs[counter]
+                    obj.feed_close()
+                    db_path = obj.db_path
+                    self.log.info('Exporting: %s --> %s'%(db_path,export_path))
+                    shutil.copyfile(db_path,export_path)
+            self.feedloader = class_feedloader.FeedLoader(self.settings)
+            self.feedobs = self.feedloader.get_feeds()
+            connection = sqlite3.connect(export_path)
+            cursor = connection.cursor()
+            sql = "UPDATE feeds SET read=0"
+            cursor.execute(sql)
+            sql = "UPDATE feeds SET favorite=0"
+            cursor.execute(sql)
+            connection.commit()
+            connection.close()
+            #~ assert False
+            return None
+        except:
+            tmp = StringIO.StringIO()
+            traceback.print_exc(file=tmp)
+            tmp.seek(0, 0)
+            errmsg = tmp.read()
+            self.log.error(errmsg)
+            tmp.close()
+            return errmsg
+
 
     def download(self,*args):
         if not 'download' in self.worker_queue.queue:

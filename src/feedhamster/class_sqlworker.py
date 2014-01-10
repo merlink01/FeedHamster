@@ -109,7 +109,7 @@ class sqlWorkerThread(threading.Thread):
                         self.returnQueue.put(True)
                     except:
                         tmp = StringIO.StringIO()
-                        tmp.write('\nVacuum Failed\n%s'%self.path)
+                        tmp.write('Vacuum Failed\n%s\n'%self.path)
                         traceback.print_exc(file=tmp)
                         tmp.seek(0, 0)
                         self.log.error(tmp.read())
@@ -152,7 +152,7 @@ class sqlWorkerThread(threading.Thread):
                         self.cursor.execute(action[1],action[2])
                     except:
                         tmp = StringIO.StringIO()
-                        tmp.write('\nDB Put Failed\n%s'%self.path)
+                        tmp.write('DB Put Failed\n%s\n'%self.path)
                         traceback.print_exc(file=tmp)
                         tmp.seek(0, 0)
                         self.log.error(self.path + '\n' + tmp.read())
@@ -167,7 +167,7 @@ class sqlWorkerThread(threading.Thread):
                         self.returnQueue.put(returndata)
                     except:
                         tmp = StringIO.StringIO()
-                        tmp.write('\nDB Get Failed\n%s'%self.path)
+                        tmp.write('DB Get Failed\n%s\n'%self.path)
                         traceback.print_exc(file=tmp)
                         tmp.seek(0, 0)
                         self.log.error(self.path + '\n' + tmp.read())

@@ -288,9 +288,13 @@ class Feed:
                 if counter > 5:
                     break
 
+                if data:
+                    break
+
             if not data:
-                self.log.debug('Error Downloading: %s'%newsuuid)
+                self.log.info('Error Downloading: %s'%newsuuid)
                 continue
+
             self.log.debug('Download: %s/%s'%(self.feed_id,newsuuid))
             sql = "INSERT INTO feeds \
             (uuid,title,summary,created,updated,recieved,read,removed,favorite,\

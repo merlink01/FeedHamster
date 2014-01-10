@@ -12,7 +12,7 @@ import tempfile
 #Internal Libs
 import singleton
 import class_settings
-import class_feedhamster
+import feedhamster
 import class_translator
 
 #GTK
@@ -72,7 +72,7 @@ class FeedHamsterGUI:
         else:
             self.summarySize = int(self.summarySize)
 
-        self.feedhamster = class_feedhamster.FeedHamster(self.path)
+        self.feedhamster = feedhamster.FeedHamster(self.path)
 
         #~ self.feedhamster.offline_mode = True
         self._startup_gui_1_main()
@@ -131,11 +131,7 @@ class FeedHamsterGUI:
         #~ self.topBox.pack_start(button,False, False, 0)
         #~ button.show()
 
-        #~ button = gtk.Button('Export')
-        #~ button.connect("clicked", self.ActionStartSync)
-        #~ self.topBox.pack_start(button,False, False, 0)
-        #~ button.show()
-        #~
+
         #~ button = gtk.Button('Settings')
         #~ button.connect("clicked", self.ActionStartSync)
         #~ self.topBox.pack_start(button,False, False, 0)
@@ -531,19 +527,25 @@ class FeedHamsterGUI:
         menuitem2 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedsetgenre','Set Genre'))
         menuitem3 = gtk.MenuItem(self.lng.getText('feeds','buttonfeeddelete','Delete'))
         menuitem4 = gtk.MenuItem(self.lng.getText('feeds','buttonfeeddownload','Download'))
-        menuitem5 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedproerties','Properties'))
+        menuitem5 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedexport','Export'))
+        menuitem6 = gtk.MenuItem(self.lng.getText('feeds','buttonfeedproerties','Properties'))
+
 
         menuitem1.connect("activate", self.subgui_feed_set_name)
         menuitem2.connect("activate", self.subgui_feed_set_genre)
         menuitem3.connect("activate", self.function_feed_delete)
         menuitem4.connect("activate", self.function_feed_download)
-        menuitem5.connect("activate", self.subgui_feed_properties)
+        menuitem5.connect("activate", self.subgui_feed_export)
+        menuitem6.connect("activate", self.subgui_feed_properties)
+
 
         self.FeedViewMenu.append(menuitem1)
         self.FeedViewMenu.append(menuitem2)
         self.FeedViewMenu.append(menuitem3)
         self.FeedViewMenu.append(menuitem4)
         self.FeedViewMenu.append(menuitem5)
+        self.FeedViewMenu.append(menuitem6)
+
 
     def _startup_gui_5_bottom(self):
         #Create Button Statusbar
@@ -726,8 +728,6 @@ class FeedHamsterGUI:
         text += '\n\nPath: \t %s\n'%feedObj.db_path
 
 
-
-
         d = gtk.MessageDialog(self.mainWindow,
                             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
                             gtk.MESSAGE_INFO,
@@ -895,6 +895,94 @@ class FeedHamsterGUI:
 
     def subgui_about(self,*args):
         pass
+
+    def subgui_feed_export(self, *args):
+
+        tree_sel = self.feedView.get_selection()
+        (tm, ti) = tree_sel.get_selected()
+        fid = (tm.get_value(ti, 1))
+        obj = self.feedhamster.feed_get(fid)
+        name = obj._read_setting('name') + '.hdb'
+
+        question = self.lng.getText('main','messageexportdir','Save as:')
+        dialog = gtk.FileChooserDialog(question,self.mainWindow,gtk.FILE_CHOOSER_ACTION_SAVE,
+                                              (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+
+        dialog.set_default_response(gtk.RESPONSE_OK)
+
+        dialog.set_current_name(name)
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            path = dialog.get_filename()
+            dialog.destroy()
+
+        elif response == gtk.RESPONSE_CANCEL:
+            dialog.destroy()
+            return
+
+        if os.path.exists(path):
+
+            exist_dialog = gtk.MessageDialog(self.mainWindow,
+                                gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                                gtk.MESSAGE_QUESTION,
+                                gtk.BUTTONS_YES_NO,'Overwite Existing File')
+
+            exist_dialog.set_default_response(gtk.RESPONSE_YES)
+            r = exist_dialog.run()
+            exist_dialog.destroy()
+
+            if r == gtk.RESPONSE_NO:
+                return
+
+        self.log.info('Starting Export')
+
+        def export(fid,path):
+
+            self.mainWindow.set_sensitive(False)
+            d = gtk.Dialog('Exporting...')
+
+            d.set_size_request(120, 60)
+            d.set_modal(False)
+            spinner = gtk.Spinner()
+            spinner.show()
+            spinner.start()
+            d.vbox.pack_end(spinner,True,True)
+            d.show()
+
+            #~ label = gtk.Label('Step1/2: Closing Feed...')
+            #~ d.vbox.pack_start(label)
+            #~ label.show()
+
+            result = self.feedhamster.feed_export(fid,path)
+            d.destroy()
+            self.mainWindow.set_sensitive(True)
+
+
+            #~ if result:
+                #~ emsg = gtk.MessageDialog(self.mainWindow,
+                                    #~ gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                                    #~ gtk.MESSAGE_ERROR,
+                                    #~ gtk.BUTTONS_OK,result)
+#~
+                #~ emsg.set_title('Error')
+#~
+                #~ emsg.set_default_response(gtk.BUTTONS_OK)
+                #~ help(emsg)
+                #~ emsg.show()
+                #~ while not emsg.button-press-event:
+                    #~ time.sleep(0.1)
+                #~ if r == gtk.RESPONSE_OK:
+                #~ time.sleep(5)
+                #~ emsg.destroy()
+
+
+
+        a = threading.Thread(target=export,args=(fid,path))
+        a.start()
+
+
+
 
     def subgui_feed_set_genre(self, *args):
         default = 'Genre'
@@ -1090,19 +1178,5 @@ class FeedHamsterGUI:
             self.NewsViewMenu.popup(None, None, None, event.button, event.time, None)
             self.NewsViewMenu.show_all()
 
-if __name__ == "__main__":
 
-    thisapp = singleton.singleinstance()
-
-    logger = logging.getLogger()
-    fmt_string = "[%(levelname)-7s]%(asctime)s.%(msecs)-3d\
-    %(module)s[%(lineno)-3d]/%(funcName)-10s  %(message)-8s "
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(logging.Formatter(fmt_string, "%H:%M:%S"))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-
-    FeedHamsterGUI()
-    gtk.main()
-    sys.exit(0)
 

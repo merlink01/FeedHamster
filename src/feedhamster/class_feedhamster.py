@@ -302,7 +302,7 @@ class FeedHamster(object):
                     errmsg = tmp.read()
                     self.log.error(errmsg)
                     tmp.close()
-                    obj.feed_restart()
+                    obj.feed_open()
                     return errmsg
                 obj.feed_restart()
 
@@ -327,7 +327,7 @@ class FeedHamster(object):
         cursor.execute(sql,('id',))
         fid = cursor.fetchall()[0][0]
 
-        sql = "UPDATE settings SET value='imported' where setting=?"
+        sql = "UPDATE settings SET value='Imported' where setting=?"
         cursor.execute(sql,('genre',))
         connection.commit()
 

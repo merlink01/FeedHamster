@@ -65,8 +65,7 @@ class Feed:
         self.log.debug('Starting with url:%s ,timeout:%s seconds' % (self.url, self.settings['download_timeout']))
 
         self.db_path = os.path.join(self.settings['workingdir'], self.feed_id + '.hdb')
-        self.db = class_sqlworker.sqlWorkerThread(self.db_path,settings['tempdir'])
-        self.db.start()
+        self.feed_open()
 
     def feed_initiate(self):
 
@@ -518,7 +517,7 @@ class Feed:
 
             if extension[0] == '.html':
                 meta = self.message_get_meta(muuid)
-                data = self.message_get_data(muuid).encode(meta['encoding'])
+                data = self.message_get_data(muuid).encode(meta['encoding']).encode(meta['encoding'])
                 tempfile.write(data)
                 tempfile.close()
                 webbrowser.open_new_tab(path)
@@ -647,7 +646,7 @@ class Feed:
         while self.db.getStatus():
             time.sleep(0.1)
 
-    def feed_restart(self):
+    def feed_open(self):
         self.db = class_sqlworker.sqlWorkerThread(self.db_path,self.settings['tempdir'])
         self.db.start()
 

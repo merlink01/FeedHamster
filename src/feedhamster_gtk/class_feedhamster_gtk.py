@@ -48,8 +48,8 @@ class FeedHamsterGUI:
         sets = class_settings.Settings('Feedhamster')
 
         path = sets.read('Settings', 'Feedpath')
-        lang = sets.read('Settings', 'Language')
-        self.lng = class_translator.Translator(language='de_DE')
+
+        self.lng = class_translator.Translator()
 
         if not path:
             question = self.lng.getText('main','messageworkingdir','Open Working Directory.')
@@ -89,9 +89,6 @@ class FeedHamsterGUI:
         self.worker_add_job('changecolors')
         self.settings = sets
 
-    def push_to_statusbar(self,message):
-        gobject.idle_add(self.statusBar.pop,0)
-        gobject.idle_add(self.statusBar.push,0,message)
 
     def _startup_gui_2_top(self):
         border = 1
@@ -907,7 +904,7 @@ class FeedHamsterGUI:
         obj = self.feedhamster.feed_get(fid)
         name = obj._read_setting('name') + '.hdb'
 
-        question = self.lng.getText('main','messageexportdir','Save as:')
+        question = self.lng.getText('feeds','messageexport','Save as:')
         dialog = gtk.FileChooserDialog(question,self.mainWindow,gtk.FILE_CHOOSER_ACTION_SAVE,
                                               (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN, gtk.RESPONSE_OK))
 
@@ -929,7 +926,7 @@ class FeedHamsterGUI:
             exist_dialog = gtk.MessageDialog(self.mainWindow,
                                 gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
                                 gtk.MESSAGE_QUESTION,
-                                gtk.BUTTONS_YES_NO,'Overwite Existing File')
+                                gtk.BUTTONS_YES_NO,self.lng.getText('feeds','overwrite','Overwite Existing File?'))
 
             exist_dialog.set_default_response(gtk.RESPONSE_YES)
             r = exist_dialog.run()
@@ -943,28 +940,31 @@ class FeedHamsterGUI:
         a = threading.Thread(target=self.subgui_feed_export_running,args=(fid,path))
         a.start()
 
-
-    def subgui_feed_export_running(self, fid, path):
-
+    def subgui_working_indicator_start(self, label='Working...'):
         self.mainWindow.set_sensitive(False)
-
-        d = gtk.Dialog('Exporting...')
-
-        d.set_size_request(120, 60)
-        d.set_modal(False)
+        self.indicatordialog = gtk.Dialog(label)
+        self.indicatordialog.set_size_request(120, 60)
+        self.indicatordialog.set_modal(False)
         spinner = gtk.Spinner()
         spinner.show()
         spinner.start()
-        d.vbox.pack_end(spinner,True,True)
-        d.show()
+        self.indicatordialog.vbox.pack_end(spinner,True,True)
+        self.indicatordialog.run()
 
+    def subgui_working_indicator_stop(self):
+
+        self.indicatordialog.destroy()
+        self.mainWindow.set_sensitive(True)
+        del self.indicatordialog
+
+    def subgui_feed_export_running(self, fid, path):
+
+        gobject.idle_add(self.subgui_working_indicator_start,self.lng.getText('feeds','exporting','Exporting...:'))
         result = self.feedhamster.feed_export(fid,path)
-        d.destroy()
-
+        gobject.idle_add(self.subgui_working_indicator_stop)
         if result:
             gobject.idle_add(self.subgui_error,result)
 
-        self.mainWindow.set_sensitive(True)
 
     def subgui_feed_set_genre(self, *args):
         default = 'Genre'
@@ -1011,7 +1011,7 @@ class FeedHamsterGUI:
                             gtk.MESSAGE_ERROR,
                             gtk.BUTTONS_OK)
 
-        emsg.set_title('Error')
+        emsg.set_title(self.lng.getText('feeds','error','An Error occured'))
 
         label = gtk.Label(msg)
         emsg.vbox.pack_start(label)
@@ -1025,12 +1025,12 @@ class FeedHamsterGUI:
 
     def subgui_feed_import(self):
 
-        question = self.lng.getText('main','messageimport','DB import:')
-        dialog = gtk.FileChooserDialog("Open..",
+        dialog = gtk.FileChooserDialog(self.lng.getText('feeds','messageimport','Choose DB to import:'),
                                        None,
                                        gtk.FILE_CHOOSER_ACTION_OPEN,
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                         gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+
         dialog.set_default_response(gtk.RESPONSE_OK)
 
         filter = gtk.FileFilter()
@@ -1051,9 +1051,9 @@ class FeedHamsterGUI:
 
     def subgui_feed_import_running(self,filename):
 
-        self.mainWindow.set_sensitive(False)
 
-        d = gtk.Dialog('Importing...')
+
+        d = gtk.Dialog(self.lng.getText('feeds','importing','Importing...'))
 
         d.set_size_request(120, 60)
         d.set_modal(False)
@@ -1075,7 +1075,7 @@ class FeedHamsterGUI:
 
 
     def subgui_feed_add(self, *args):
-        self.push_to_statusbar('Add new Feed')
+
         while 1:
             message = self.lng.getText('top','messagefeedadd','Please Enter the Feed Type and URL or Import a Database:')
             message += ' ' * 20
@@ -1087,6 +1087,7 @@ class FeedHamsterGUI:
                                 gtk.BUTTONS_OK_CANCEL,message)
 
             combo = gtk.combo_box_new_text()
+            d.set_size_request(350, 300)
 
             counter = 0
             for entry in self.feedhamster.plugins_list():
@@ -1106,7 +1107,7 @@ class FeedHamsterGUI:
 
             self.db_import = False
 
-            checkbox = gtk.CheckButton("Import")
+            checkbox = gtk.CheckButton(self.lng.getText('feeds','importtext','Import'))
             checkbox.connect("toggled", self.subgui_event_import_toggle,entry,combo)
             checkbox.show()
             d.vbox.pack_end(checkbox)
@@ -1131,9 +1132,7 @@ class FeedHamsterGUI:
                         feed = self.feedhamster.feed_get(fid)
                         self.build_feed_view()
                         d.destroy()
-                        self.push_to_statusbar('Done')
                         time.sleep(1)
-                        self.push_to_statusbar('Ready')
                         break
                     else:
                         d.destroy()
@@ -1152,7 +1151,6 @@ class FeedHamsterGUI:
                             break
                 else:
                     d.destroy()
-                    self.push_to_statusbar('Ready')
                     break
 
 
@@ -1173,14 +1171,12 @@ class FeedHamsterGUI:
         r = d.run()
         d.destroy()
         if r == gtk.RESPONSE_OK:
-            self.push_to_statusbar('Deleting: %s'%fid)
 
             self.feedhamster.feed_delete(fid)
             time.sleep(1)
 
             self.build_feed_view()
             gobject.idle_add(self.newsView.set_model,None)
-            self.push_to_statusbar('Ready')
 
 
     def gui_event_search_activated(self, widget):

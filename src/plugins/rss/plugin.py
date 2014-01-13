@@ -10,6 +10,7 @@ import webbrowser
 import urlparse
 import StringIO
 import feedparser
+import chardet
 
 log = logging.getLogger('plugin_rss')
 

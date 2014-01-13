@@ -1,0 +1,41 @@
+[top]
+search = Suchen
+comboall = Alle
+combounread = Ungelesen
+combofav = Favoriten
+comboallnews = Alle
+messagefeedadd = Bitte einen Feed oder eine Datenbank zum Import angeben:
+
+[feeds]
+categories = Kategorien
+buttonfeedrename = Umbenennen
+buttonfeedsetgenre = Kategorie wählen
+buttonfeeddelete = Löschen
+buttonfeeddownload = Herunterladen
+buttonfeedexport = Exportieren
+buttonfeedproerties = Eigenschaften
+messagefeeddel = Wirklich Löschen:
+messagefeedsetgenre = Bitte eine Kategorie eingeben für:
+messagefeedrename = Bitte einen Namen eingeben für:
+messageexport = Speichern unter:
+exporting = Exportiere...:
+overwrite = Existierende Datei überschreiben?
+error = Ein Fehler ist aufgetreten:
+messageimport = Choose DB to import:
+importing = Importiere...
+importtext = Importieren
+
+[news]
+columnread = Gelesen
+columnfav = Favoriten
+columntime = Zeit
+columntitle = Titel
+menuopen = Öffnen
+menuopenonline = Online Öffnen
+menusaveas = Speichern als...
+menudelete = Löschen
+menuproperties = Eigenschaften
+
+[sub_feed_add]
+message2 = Access to url not possible
+

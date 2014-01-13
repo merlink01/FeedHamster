@@ -1,8 +1,13 @@
 import os
+import locale
+import logging
+import ConfigParser
 
 class Translator(object):
-    def __init__(self,path=None,language=None):
+    def __init__(self,path=None):
+        self.log = logging.getLogger('translator')
 
+        language = locale.getdefaultlocale()[0]
         self.parser = None
         self.fallback = False
         self.language = language
@@ -12,57 +17,55 @@ class Translator(object):
             self.path = os.path.abspath('lang')
         else:
             self.path = os.path.abspath(path)
-            
+
+        self.langfile = os.path.join(self.path,language + '.lng')
+        self.writable = False
+
         try:
-            filelist = os.listdir(self.path)
+            os.open(self.langfile,'a').close()
+            self.writable = True
         except:
-            self.fallback = True
-            return
+            pass
 
-        for entry in filelist:
-            if os.path.splitext(entry)[1] == '.lng':
-                full_path = os.path.join(self.path, entry)
-                try:
-                    parser = ConfigParser.RawConfigParser( )
-                    parser.read(full_path)
-                    sections = parser.sections()
-                    if 'info' in sections:
-                        if parser.get('info', 'type') == 'languagefile':
-                            self.langlist.append([parser.get('info', 'language'),full_path])
-                except:
-                    continue
+        self.log.info('Laqngfile: %s'%self.langfile)
 
-        if self.langlist == []:
-            self.fallback = True
 
-        if self.language:
-            if not self._check_lang(self.language):
-                 self.fallback = True
-            if not self.fallback:
-                for entry in self.langlist:
-                    if entry[0].lower() == self.language.lower():
-                        self.parser = ConfigParser.RawConfigParser( )
-                        self.parser.read(entry[1])
 
-    def get_langs(self):
-        return self.langlist
-        
-    def set_lang(self,language):
-        if self._check_lang(language):
-            self.language = language
-            for entry in self.langlist:
-                if entry[0].lower() == self.language.lower():
-                    self.parser = ConfigParser.RawConfigParser( )
-                    self.parser.read(entry[1])
-        
-    def _check_lang(self,language):
-        for entry in self.langlist:
-            if entry[0].lower() == language.lower():
-               return True
-        return False
+
+    def read(self, section, option):
+        try:
+            parser= ConfigParser.RawConfigParser( )
+            parser.read(self.langfile)
+            value = parser.get(section, option)
+            return value
+        except:
+            return None
+
+    def write(self, section, option, value):
+        #~ if not self.writable:
+            #~ return
+        self.log.info('writing')
+        parser = ConfigParser.RawConfigParser( )
+        if os.path.isfile(self.langfile):
+            parser.read(self.langfile)
+        try:
+            parser.add_section(section)
+        except:
+            pass
+        parser.set(section, option, value)
+        file_object = open(self.langfile, 'w')
+        parser.write(file_object)
+        file_object.close()
+
 
     def getText(self,header,name,fallback):
-        try:
-            return self.parser.get(header, name)
-        except:
+
+        text = self.read(header,name)
+
+        if not text:
+            self.log.info('writing: %s %s %s'%(header,name,fallback))
+            self.write(header,name,fallback)
             return fallback
+
+        else:
+            return text

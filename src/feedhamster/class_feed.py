@@ -647,6 +647,10 @@ class Feed:
         while self.db.getStatus():
             time.sleep(0.1)
 
+    def feed_restart(self):
+        self.db = class_sqlworker.sqlWorkerThread(self.db_path,self.settings['tempdir'])
+        self.db.start()
+
 
     def feed_delete(self):
         self.feed_close()

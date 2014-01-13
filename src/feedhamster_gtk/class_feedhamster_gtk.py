@@ -802,8 +802,11 @@ class FeedHamsterGUI:
         row = ts.get_selected_rows()[1][0]
 
         fid = model[row][0]
+
         if not fid:
             return
+
+        self.log.debug('Selected Message: %s/%s'%(self.openFeed,fid))
         textbuffer = self.summaryView.get_buffer()
         summary = feedObj.message_get_meta(fid)['summary']
         while '  ' in summary:
@@ -937,52 +940,31 @@ class FeedHamsterGUI:
 
         self.log.info('Starting Export')
 
-        def export(fid,path):
-
-            self.mainWindow.set_sensitive(False)
-            d = gtk.Dialog('Exporting...')
-
-            d.set_size_request(120, 60)
-            d.set_modal(False)
-            spinner = gtk.Spinner()
-            spinner.show()
-            spinner.start()
-            d.vbox.pack_end(spinner,True,True)
-            d.show()
-
-            #~ label = gtk.Label('Step1/2: Closing Feed...')
-            #~ d.vbox.pack_start(label)
-            #~ label.show()
-
-            result = self.feedhamster.feed_export(fid,path)
-            d.destroy()
-            self.mainWindow.set_sensitive(True)
-
-
-            #~ if result:
-                #~ emsg = gtk.MessageDialog(self.mainWindow,
-                                    #~ gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                                    #~ gtk.MESSAGE_ERROR,
-                                    #~ gtk.BUTTONS_OK,result)
-#~
-                #~ emsg.set_title('Error')
-#~
-                #~ emsg.set_default_response(gtk.BUTTONS_OK)
-                #~ help(emsg)
-                #~ emsg.show()
-                #~ while not emsg.button-press-event:
-                    #~ time.sleep(0.1)
-                #~ if r == gtk.RESPONSE_OK:
-                #~ time.sleep(5)
-                #~ emsg.destroy()
-
-
-
-        a = threading.Thread(target=export,args=(fid,path))
+        a = threading.Thread(target=self.subgui_feed_export_running,args=(fid,path))
         a.start()
 
 
+    def subgui_feed_export_running(self, fid, path):
 
+        self.mainWindow.set_sensitive(False)
+
+        d = gtk.Dialog('Exporting...')
+
+        d.set_size_request(120, 60)
+        d.set_modal(False)
+        spinner = gtk.Spinner()
+        spinner.show()
+        spinner.start()
+        d.vbox.pack_end(spinner,True,True)
+        d.show()
+
+        result = self.feedhamster.feed_export(fid,path)
+        d.destroy()
+
+        if result:
+            gobject.idle_add(self.subgui_error,result)
+
+        self.mainWindow.set_sensitive(True)
 
     def subgui_feed_set_genre(self, *args):
         default = 'Genre'
@@ -1011,10 +993,91 @@ class FeedHamsterGUI:
             feedObj._write_setting('genre',name,True)
             self.build_feed_view()
 
+    def subgui_event_import_toggle(self,widget,entry,combo):
+
+        if widget.get_active():
+            self.db_import = True
+            gobject.idle_add(entry.hide)
+            gobject.idle_add(combo.hide)
+        else:
+            self.db_import = False
+            gobject.idle_add(entry.show)
+            gobject.idle_add(combo.show)
+
+    def subgui_error(self,msg):
+
+        emsg = gtk.MessageDialog(self.mainWindow,
+                            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                            gtk.MESSAGE_ERROR,
+                            gtk.BUTTONS_OK)
+
+        emsg.set_title('Error')
+
+        label = gtk.Label(msg)
+        emsg.vbox.pack_start(label)
+        label.show()
+
+        emsg.set_default_response(gtk.BUTTONS_OK)
+        r = emsg.run()
+        if r == gtk.RESPONSE_OK:
+            pass
+        emsg.destroy()
+
+    def subgui_feed_import(self):
+
+        question = self.lng.getText('main','messageimport','DB import:')
+        dialog = gtk.FileChooserDialog("Open..",
+                                       None,
+                                       gtk.FILE_CHOOSER_ACTION_OPEN,
+                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+
+        filter = gtk.FileFilter()
+        filter.set_name("FeedHamster DB")
+        filter.add_pattern("*.hdb")
+        dialog.add_filter(filter)
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            path = dialog.get_filename()
+            dialog.destroy()
+        else:
+            dialog.destroy()
+            return
+
+        a = threading.Thread(target=self.subgui_feed_import_running,args=(path,))
+        a.start()
+
+    def subgui_feed_import_running(self,filename):
+
+        self.mainWindow.set_sensitive(False)
+
+        d = gtk.Dialog('Importing...')
+
+        d.set_size_request(120, 60)
+        d.set_modal(False)
+        spinner = gtk.Spinner()
+        spinner.show()
+        spinner.start()
+        d.vbox.pack_end(spinner,True,True)
+        d.show()
+
+        result = self.feedhamster.feed_import(filename)
+        d.destroy()
+
+        if result:
+            gobject.idle_add(self.subgui_error,result)
+        else:
+            self.build_feed_view()
+
+        self.mainWindow.set_sensitive(True)
+
+
     def subgui_feed_add(self, *args):
         self.push_to_statusbar('Add new Feed')
         while 1:
-            message = self.lng.getText('top','messagefeedadd','Please Enter the Feed Type and URL:')
+            message = self.lng.getText('top','messagefeedadd','Please Enter the Feed Type and URL or Import a Database:')
             message += ' ' * 20
             parent = self.mainWindow
             default = 'https://github.com/merlink01.atom'
@@ -1025,18 +1088,29 @@ class FeedHamsterGUI:
 
             combo = gtk.combo_box_new_text()
 
+            counter = 0
             for entry in self.feedhamster.plugins_list():
-                print self.feedhamster.plugins_list()
                 combo.append_text(entry)
+                if 'rss' in entry.lower():
+                    combo.set_active(counter)
+                counter += 1
 
-            combo.set_active(0)
             combo.show()
+
 
             entry = gtk.Entry()
             entry.set_text(default)
             entry.show()
             d.vbox.pack_start(combo)
-            d.vbox.pack_end(entry)
+            d.vbox.pack_start(entry)
+
+            self.db_import = False
+
+            checkbox = gtk.CheckButton("Import")
+            checkbox.connect("toggled", self.subgui_event_import_toggle,entry,combo)
+            checkbox.show()
+            d.vbox.pack_end(checkbox)
+
             entry.connect('activate', lambda _: d.response(gtk.RESPONSE_OK))
             d.set_default_response(gtk.RESPONSE_OK)
             r = d.run()
@@ -1045,35 +1119,41 @@ class FeedHamsterGUI:
             model = combo.get_model()
             index = combo.get_active()
             addtype = model[index][0]
-            if r == gtk.RESPONSE_OK:
-                fid = self.feedhamster.feed_create(url,addtype)
-                if fid:
-                    feed = self.feedhamster.feed_get(fid)
-                    self.build_feed_view()
-                    d.destroy()
-                    self.push_to_statusbar('Done')
-                    time.sleep(1)
-                    self.push_to_statusbar('Ready')
-                    break
+            if self.db_import:
+                d.destroy()
+                gobject.idle_add(self.subgui_feed_import)
+                break
+
+            else:
+                if r == gtk.RESPONSE_OK:
+                    fid = self.feedhamster.feed_create(url,addtype)
+                    if fid:
+                        feed = self.feedhamster.feed_get(fid)
+                        self.build_feed_view()
+                        d.destroy()
+                        self.push_to_statusbar('Done')
+                        time.sleep(1)
+                        self.push_to_statusbar('Ready')
+                        break
+                    else:
+                        d.destroy()
+                        message = self.lng.getText('sub_feed_add','message2','Access to url not possible')
+                        message = message or 'Error, No Feed Found:'
+                        message += '\n%s'%url
+                        parent = self.mainWindow
+                        d = gtk.MessageDialog(parent,
+                                            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                                            gtk.MESSAGE_ERROR,
+                                            gtk.BUTTONS_OK,message)
+                        d.set_default_response(gtk.RESPONSE_OK)
+                        r = d.run()
+                        d.destroy()
+                        if r == gtk.RESPONSE_OK:
+                            break
                 else:
                     d.destroy()
-                    message = self.lng.getText('sub_feed_add','message2','Access to url not possible')
-                    message = message or 'Error, No Feed Found:'
-                    message += '\n%s'%url
-                    parent = self.mainWindow
-                    d = gtk.MessageDialog(parent,
-                                        gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                                        gtk.MESSAGE_ERROR,
-                                        gtk.BUTTONS_OK,message)
-                    d.set_default_response(gtk.RESPONSE_OK)
-                    r = d.run()
-                    d.destroy()
-                    if r == gtk.RESPONSE_OK:
-                        break
-            else:
-                d.destroy()
-                self.push_to_statusbar('Ready')
-                break
+                    self.push_to_statusbar('Ready')
+                    break
 
 
     def function_feed_delete(self, *args):

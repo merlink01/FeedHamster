@@ -22,28 +22,52 @@ class FeedLoader:
         self.feedobs = []
         self._load_feeds()
 
-    def _check_feed_db(self):
-        self.log.debug('Check Feed: %s'%self.db.path)
+    def _check_feed_db(self, db_path, check_naming=True):
+        self.log.debug('Check Feed: %s'%db_path)
 
-        if  self.db.executeCommand('list_tables') != [(u'settings',), (u'feeds',)]:
+        db_handle = class_sqlworker.sqlWorkerThread(db_path)
+        db_handle.start()
+
+        if  db_handle.executeCommand('list_tables') != [(u'settings',), (u'feeds',)]:
+            db_handle.executeCommand('exit')
             return False
 
-        if self.db.executeCommand('list_columns','settings') != [u'setting', u'value']:
+        if db_handle.executeCommand('list_columns','settings') != [u'setting', u'value']:
+            db_handle.executeCommand('exit')
             return False
 
-        feeds_columns_list = self.db.executeCommand('list_columns','feeds')
+        feeds_columns_list = db_handle.executeCommand('list_columns','feeds')
         for entry in COLUMNS_TO_CHECK:
             self.log.debug('Testing: %s'%entry)
             if not entry in feeds_columns_list:
                 self.log.warning('Column not present: %s'%entry)
+                db_handle.executeCommand('exit')
                 return False
 
         for entry in SETTINGS_TO_CHECK:
             self.log.debug('Testing: %s'%entry)
-            if self._read_setting(entry) == None:
+
+            sql = "SELECT value FROM settings WHERE setting=?"
+            answer = db_handle.executeCommand('get',sql, (entry,))[0][0]
+
+            if answer == None:
                 self.log.warning('Setting not present: %s'%entry)
+                db_handle.executeCommand('exit')
                 return False
 
+        if check_naming:
+            name = os.path.basename(db_path)
+
+            sql = "SELECT value FROM settings WHERE setting=?"
+            answer = db_handle.executeCommand('get',sql, ('id',))[0][0]
+
+            fid = answer + '.hdb'
+            if name != fid:
+                self.log.warning('Filenamename wrong: %s - Please use the FeedHamster.feed_import function.'%name)
+                db_handle.executeCommand('exit')
+                return False
+
+        db_handle.executeCommand('exit')
         return True
 
 
@@ -87,21 +111,16 @@ class FeedLoader:
             if os.path.splitext(entry)[1] == '.hdb':
                 full_path = os.path.join(self.settings['workingdir'], entry)
                 self.log.info('Load Feed: %s'%entry)
-                self.db = class_sqlworker.sqlWorkerThread(full_path)
-                self.db.start()
-                if not self._check_feed_db():
+
+                if not self._check_feed_db(full_path):
                     self.log.warning('DB Check Error: %s'%entry)
-                    self.db.executeCommand('exit')
                     continue
 
-                try:
-                    url = self._read_setting('url')
-                    plugin = self._read_setting('plugin')
-                    self.db.executeCommand('exit')
-                except:
-                    self.log.error('Got defect Database: %s'%full_path)
-                    self.db.executeCommand('exit')
-                    continue
+                self.db = class_sqlworker.sqlWorkerThread(full_path)
+                self.db.start()
+                url = self._read_setting('url')
+                plugin = self._read_setting('plugin')
+                self.db.executeCommand('exit')
 
                 if modulelist.has_key(plugin):
 
@@ -144,8 +163,6 @@ class FeedLoader:
             feed._save_setting('version', 0.03, True)
             feed._save_setting('max_size', 1024*1024*4000)
             return 0.03
-
-
 
 #~ global FHLOGGER
 #~ FHLOGGER = logging.getLogger()

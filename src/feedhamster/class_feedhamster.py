@@ -52,9 +52,7 @@ class FeedHamster(object):
         for entry in self.settings:
             self.log.info('%s:\t %s'%(entry.upper(),self.settings[entry]))
 
-
         # Test and Create Pathes
-
         if not os.path.isdir(self.settings['workingdir']):
             try:
                 os.makedirs(self.settings['workingdir'])
@@ -144,11 +142,7 @@ class FeedHamster(object):
                     del obj
 
                 del self.feedobs
-
-
-
                 self.log.info('FeedHamster closed correct')
-
                 return
 
             #Data Download
@@ -269,7 +263,6 @@ class FeedHamster(object):
         """ Add a new Feed """
 
         self.log.debug('Adding: %s'%url)
-
         self.log.debug('Check awareness')
         for obj in self.feedobs:
             if obj.url == url:
@@ -293,28 +286,57 @@ class FeedHamster(object):
         os.remove(path)
 
     def feed_export(self,fid,export_path):
-        try:
-            counter = -1
-            for obj in self.feedobs:
-                counter += 1
-                if obj.feed_id == fid:
-                    del self.feedobs[counter]
-                    obj.feed_close()
-                    db_path = obj.db_path
-                    self.log.info('Exporting: %s --> %s'%(db_path,export_path))
+
+        for obj in self.feedobs:
+
+            if obj.feed_id == fid:
+                obj.feed_close()
+                db_path = obj.db_path
+                self.log.info('Exporting: %s --> %s'%(db_path,export_path))
+                try:
                     shutil.copyfile(db_path,export_path)
-            self.feedloader = class_feedloader.FeedLoader(self.settings)
-            self.feedobs = self.feedloader.get_feeds()
-            connection = sqlite3.connect(export_path)
-            cursor = connection.cursor()
-            sql = "UPDATE feeds SET read=0"
-            cursor.execute(sql)
-            sql = "UPDATE feeds SET favorite=0"
-            cursor.execute(sql)
-            connection.commit()
-            connection.close()
-            #~ assert False
-            return None
+                except:
+                    tmp = StringIO.StringIO()
+                    traceback.print_exc(file=tmp)
+                    tmp.seek(0, 0)
+                    errmsg = tmp.read()
+                    self.log.error(errmsg)
+                    tmp.close()
+                    obj.feed_restart()
+                    return errmsg
+                obj.feed_restart()
+
+        connection = sqlite3.connect(export_path)
+        cursor = connection.cursor()
+        sql = "UPDATE feeds SET read=0"
+        cursor.execute(sql)
+        sql = "UPDATE feeds SET favorite=0"
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
+        return None
+
+    def feed_import(self, import_path):
+        if not self.feedloader._check_feed_db(import_path,False):
+            return 'Feed seems to be broken: %s'%(import_path)
+
+        connection = sqlite3.connect(import_path)
+        cursor = connection.cursor()
+
+        sql = "SELECT value FROM settings WHERE setting=?"
+        cursor.execute(sql,('id',))
+        fid = cursor.fetchall()[0][0]
+
+        sql = "UPDATE settings SET value='imported' where setting=?"
+        cursor.execute(sql,('genre',))
+        connection.commit()
+
+        savepath = os.path.join(self.settings['workingdir'],fid + '.hdb')
+        if os.path.exists(savepath):
+            return 'Import to %s not possible, Feed exists already.'%savepath
+
+        try:
+            shutil.copyfile(import_path,os.path.join(self.settings['workingdir'],fid + '.hdb'))
         except:
             tmp = StringIO.StringIO()
             traceback.print_exc(file=tmp)
@@ -324,12 +346,14 @@ class FeedHamster(object):
             tmp.close()
             return errmsg
 
+        self.feedloader = class_feedloader.FeedLoader(self.settings)
+        self.feedobs = self.feedloader.get_feeds()
+
 
     def download(self,*args):
         if not 'download' in self.worker_queue.queue:
             if not self.worker_job == 'download':
                 self.worker_queue.put('download')
-
 
     def feedhamster_shutdown(self,*args):
         self.shutdown = True
